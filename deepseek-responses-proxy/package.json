@@ -1,0 +1,17 @@
+{
+  "name": "deepseek-responses-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Translates the OpenAI Responses API (which codex-rs speaks) to DeepSeek's Chat Completions API, so codex-rs can run on DeepSeek.",
+  "bin": {
+    "deepseek-responses-proxy": "src/index.mjs"
+  },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

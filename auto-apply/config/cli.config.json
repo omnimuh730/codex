@@ -1,0 +1,28 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "headless": false
+    },
+    "contextOptions": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "agent": {
+    "_comment": "Read by THIS project's runtime, not by playwright-cli (it ignores unknown keys).",
+    "auto_submit": true,
+    "handle_login": true,
+    "eeo_default_decline": true,
+    "max_step_retries": 2,
+    "human_pacing_ms": {
+      "min": 400,
+      "max": 1200
+    },
+    "resume_path": "assets/resume.pdf",
+    "cover_letter_path": "assets/cover_letter.md",
+    "auth_state_path": ".playwright/auth-state.json"
+  }
+}

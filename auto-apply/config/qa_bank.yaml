@@ -1,0 +1,47 @@
+# qa_bank.yaml — known screening questions + reusable defaults.
+#
+# Matching: compare an incoming question (case-insensitive) against each entry's `patterns`
+# (substring or regex). First match wins. On no match -> draft an answer from profile +
+# on-page job description; if low-confidence or high-stakes -> flag for the human.
+#
+# answer_strategy values:
+#   literal text under `answer:`        -> use verbatim
+#   profile.<path>                      -> read the value from profile.yaml (booleans map to Yes/No)
+#   compute_from_profile.<thing>        -> derive (e.g. total years from experience[])
+#   flag_human                          -> never guess; record in fields_flagged
+
+defaults:
+  notice_period: "2 weeks"
+  why_company: "TEMPLATE: tailor per role from the job description on the page."
+  cover_letter: "TEMPLATE: see assets/cover_letter.md; tailor per role."
+
+qa:
+  - patterns: ["years of experience", "how many years"]
+    answer_strategy: "compute_from_profile.experience"
+
+  - patterns: ["authorized to work", "legally authorized", "eligible to work"]
+    answer_strategy: "profile.work_authorization.authorized_to_work_us"
+
+  - patterns: ["require sponsorship", "visa sponsorship", "need sponsorship"]
+    answer_strategy: "profile.work_authorization.requires_sponsorship"
+
+  - patterns: ["willing to relocate", "open to relocation"]
+    answer_strategy: "profile.preferences.willing_to_relocate"
+
+  - patterns: ["remote", "on-site", "onsite", "hybrid", "work arrangement"]
+    answer_strategy: "profile.preferences.remote_preference"
+
+  - patterns: ["start date", "earliest.*start", "when can you start", "available to start"]
+    answer_strategy: "profile.preferences.earliest_start_date"
+
+  - patterns: ["notice period", "how much notice"]
+    answer: "2 weeks"
+
+  - patterns: ["expected salary", "salary expectation", "desired compensation", "compensation expectation"]
+    answer_strategy: "flag_human"     # high-stakes: never guess
+
+  - patterns: ["how did you hear", "referral source", "where did you find"]
+    answer: "Company website"
+
+  - patterns: ["gender", "race", "ethnicity", "veteran", "disability", "self-identif"]
+    answer_strategy: "profile.voluntary_self_id"   # defaults to decline

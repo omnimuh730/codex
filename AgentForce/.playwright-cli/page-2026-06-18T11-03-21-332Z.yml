@@ -1,0 +1,977 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e7]:
+        - generic [ref=e9]:
+          - img [ref=e11]
+          - generic [ref=e15]:
+            - generic [ref=e16]: BidForge
+            - generic [ref=e17]: Orchestrator v2.4
+        - generic [ref=e18]:
+          - list [ref=e21]:
+            - listitem [ref=e22]:
+              - button "Dashboard" [ref=e23]:
+                - img [ref=e24]
+                - generic [ref=e29]: Dashboard
+            - listitem [ref=e30]:
+              - button "Agents" [ref=e31]:
+                - img [ref=e32]
+                - generic [ref=e35]: Agents
+            - listitem [ref=e36]:
+              - button "Terminal" [ref=e37]:
+                - img [ref=e38]
+                - generic [ref=e40]: Terminal
+            - listitem [ref=e41]:
+              - button "Settings" [ref=e42]:
+                - img [ref=e43]
+                - generic [ref=e46]: Settings
+          - generic [ref=e47]:
+            - generic [ref=e48]: Runs
+            - generic [ref=e50]:
+              - button "Melo 9m" [ref=e51]:
+                - generic [ref=e53]: Melo
+                - generic [ref=e54]: 9m
+              - button "Delo 14m" [ref=e55]:
+                - generic [ref=e57]: Delo
+                - generic [ref=e58]: 14m
+              - button "Nata 6h" [ref=e59]:
+                - generic [ref=e61]: Nata
+                - generic [ref=e62]: 6h
+              - button "Debot 8h" [ref=e63]:
+                - generic [ref=e65]: Debot
+                - generic [ref=e66]: 8h
+              - button "Evolution 8h" [ref=e67]:
+                - generic [ref=e69]: Evolution
+                - generic [ref=e70]: 8h
+              - button "Drwq 9h" [ref=e71]:
+                - generic [ref=e73]: Drwq
+                - generic [ref=e74]: 9h
+              - button "Drw 10h" [ref=e75]:
+                - generic [ref=e77]: Drw
+                - generic [ref=e78]: 10h
+              - button "Evolution 10h" [ref=e79]:
+                - generic [ref=e81]: Evolution
+                - generic [ref=e82]: 10h
+        - button "Toggle Sidebar" [ref=e83]
+      - main [ref=e84]:
+        - generic [ref=e85]:
+          - generic [ref=e86]:
+            - button "Toggle Sidebar" [ref=e87]:
+              - img
+              - generic [ref=e88]: Toggle Sidebar
+            - heading "Monitor & Orchestrate" [level=1] [ref=e89]
+            - generic [ref=e90]: Thursday, Jun 18
+          - generic [ref=e91]:
+            - combobox [ref=e92]:
+              - option "All profiles" [selected]
+              - option "Adam"
+              - option "Bill"
+              - option "Brian"
+              - option "Carlos"
+              - option "Daryl Long"
+              - option "Eli Taylor"
+              - option "Titan"
+              - option "agent"
+              - option "James Wang"
+              - option "john"
+              - option "mang"
+              - option "orchlinktest2"
+              - option "orchtest2"
+              - option "robin"
+              - option "Terry Huang"
+              - option "Tracy Nguyen"
+            - generic [ref=e93]:
+              - img [ref=e94]
+              - generic [ref=e98]: Connected
+            - button "Refresh" [ref=e99] [cursor=pointer]:
+              - img [ref=e100]
+              - text: Refresh
+            - button "Deploy Agent" [ref=e105] [cursor=pointer]:
+              - img [ref=e106]
+              - text: Deploy Agent
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - generic [ref=e111]: Active Runs
+                - img [ref=e113]
+              - generic [ref=e115]: "0"
+              - paragraph [ref=e116]: 9 total agents
+            - generic [ref=e117]:
+              - generic [ref=e118]:
+                - generic [ref=e119]: In Progress
+                - img [ref=e121]
+              - generic [ref=e124]: "22"
+              - paragraph [ref=e125]: jobs being applied
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e128]: Succeeded Today
+                - img [ref=e130]
+              - generic [ref=e133]: "3"
+              - paragraph [ref=e134]: 16 total submitted
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: Scheduled
+                - img [ref=e139]
+              - generic [ref=e142]: "0"
+              - paragraph [ref=e143]: 9398 posted in queue
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - generic [ref=e146]:
+                - heading "7-Day Submissions" [level=3] [ref=e147]
+                - generic [ref=e148]: 16 this week
+              - img [ref=e151]:
+                - generic [ref=e155]:
+                  - generic [ref=e157]: Fri
+                  - generic [ref=e159]: Sat
+                  - generic [ref=e161]: Sun
+                  - generic [ref=e163]: Mon
+                  - generic [ref=e165]: Tue
+                  - generic [ref=e167]: Wed
+                  - generic [ref=e169]: Thu
+                - generic [ref=e171]:
+                  - generic [ref=e173]: "0"
+                  - generic [ref=e175]: "4"
+                  - generic [ref=e177]: "8"
+                  - generic [ref=e179]: "16"
+            - generic [ref=e184]:
+              - heading "Pipeline Stages" [level=3] [ref=e186]
+              - img [ref=e189]:
+                - generic [ref=e193]:
+                  - generic [ref=e195]: Succeeded
+                  - generic [ref=e197]: Failed
+                  - generic [ref=e199]: Scheduled
+                  - generic [ref=e201]: Review
+                - generic [ref=e203]:
+                  - generic [ref=e205]: "0"
+                  - generic [ref=e207]: "6"
+                  - generic [ref=e209]: "12"
+                  - generic [ref=e211]: "24"
+          - generic [ref=e221]:
+            - generic [ref=e223]:
+              - generic [ref=e224]:
+                - generic [ref=e225]:
+                  - button "In progress 22" [ref=e226]:
+                    - text: In progress
+                    - generic [ref=e227]: "22"
+                  - button "Succeeded 16" [ref=e228]:
+                    - text: Succeeded
+                    - generic [ref=e229]: "16"
+                  - button "Failed 5" [ref=e230]:
+                    - text: Failed
+                    - generic [ref=e231]: "5"
+                  - button "Scheduled 0" [ref=e232]:
+                    - text: Scheduled
+                    - generic [ref=e233]: "0"
+                - generic [ref=e234]:
+                  - img [ref=e235]
+                  - textbox "Search jobs…" [ref=e238]
+              - table [ref=e240]:
+                - rowgroup [ref=e241]:
+                  - row "Job Source Agent Status Date" [ref=e242]:
+                    - columnheader "Job" [ref=e243]
+                    - columnheader "Source" [ref=e244]
+                    - columnheader "Agent" [ref=e245]
+                    - columnheader "Status" [ref=e246]
+                    - columnheader "Date" [ref=e247]
+                - rowgroup [ref=e248]:
+                  - row "Member of Engineering (Pre-training / Synthetic Data) Poolside 29% match · AI Ashby Nata In progress —" [ref=e249]:
+                    - cell "Member of Engineering (Pre-training / Synthetic Data) Poolside 29% match · AI" [ref=e250]:
+                      - generic [ref=e251]: Member of Engineering (Pre-training / Synthetic Data)
+                      - generic [ref=e252]: Poolside
+                      - generic [ref=e253]: 29% match · AI
+                    - cell "Ashby" [ref=e254]
+                    - cell "Nata" [ref=e255]:
+                      - generic [ref=e256]:
+                        - img [ref=e257]
+                        - text: Nata
+                    - cell "In progress" [ref=e260]:
+                      - generic [ref=e261]: In progress
+                    - cell "—" [ref=e263]
+                  - row "Sr. Sales Development Representative, Partner Team Demandbase Ashby Nata In progress —" [ref=e264]:
+                    - cell "Sr. Sales Development Representative, Partner Team Demandbase" [ref=e265]:
+                      - generic [ref=e266]: Sr. Sales Development Representative, Partner Team
+                      - generic [ref=e267]: Demandbase
+                    - cell "Ashby" [ref=e268]
+                    - cell "Nata" [ref=e269]:
+                      - generic [ref=e270]:
+                        - img [ref=e271]
+                        - text: Nata
+                    - cell "In progress" [ref=e274]:
+                      - generic [ref=e275]: In progress
+                    - cell "—" [ref=e277]
+                  - row "Finance OnePay Ashby Nata In progress —" [ref=e278]:
+                    - cell "Finance OnePay" [ref=e279]:
+                      - generic [ref=e280]: Finance
+                      - generic [ref=e281]: OnePay
+                    - cell "Ashby" [ref=e282]
+                    - cell "Nata" [ref=e283]:
+                      - generic [ref=e284]:
+                        - img [ref=e285]
+                        - text: Nata
+                    - cell "In progress" [ref=e288]:
+                      - generic [ref=e289]: In progress
+                    - cell "—" [ref=e291]
+                  - row "Senior AI Engineer Drata 68% match · AI Ashby Drwq In progress —" [ref=e292]:
+                    - cell "Senior AI Engineer Drata 68% match · AI" [ref=e293]:
+                      - generic [ref=e294]: Senior AI Engineer
+                      - generic [ref=e295]: Drata
+                      - generic [ref=e296]: 68% match · AI
+                    - cell "Ashby" [ref=e297]
+                    - cell "Drwq" [ref=e298]:
+                      - generic [ref=e299]:
+                        - img [ref=e300]
+                        - text: Drwq
+                    - cell "In progress" [ref=e303]:
+                      - generic [ref=e304]: In progress
+                    - cell "—" [ref=e306]
+                  - row "Project Coordinator (3-Month Contract) PAR Technology 0% match · AI Ashby Avalon In progress —" [ref=e307]:
+                    - cell "Project Coordinator (3-Month Contract) PAR Technology 0% match · AI" [ref=e308]:
+                      - generic [ref=e309]: Project Coordinator (3-Month Contract)
+                      - generic [ref=e310]: PAR Technology
+                      - generic [ref=e311]: 0% match · AI
+                    - cell "Ashby" [ref=e312]
+                    - cell "Avalon" [ref=e313]:
+                      - generic [ref=e314]:
+                        - img [ref=e315]
+                        - text: Avalon
+                    - cell "In progress" [ref=e318]:
+                      - generic [ref=e319]: In progress
+                    - cell "—" [ref=e321]
+                  - row "Strategic Account Director, Media Buying 829 Studios Ashby Avalon In progress —" [ref=e322]:
+                    - cell "Strategic Account Director, Media Buying 829 Studios" [ref=e323]:
+                      - generic [ref=e324]: Strategic Account Director, Media Buying
+                      - generic [ref=e325]: 829 Studios
+                    - cell "Ashby" [ref=e326]
+                    - cell "Avalon" [ref=e327]:
+                      - generic [ref=e328]:
+                        - img [ref=e329]
+                        - text: Avalon
+                    - cell "In progress" [ref=e332]:
+                      - generic [ref=e333]: In progress
+                    - cell "—" [ref=e335]
+                  - row "People Operations Partner - North America & Asia-Pacific-Japan Filigran Ashby Avalon In progress —" [ref=e336]:
+                    - cell "People Operations Partner - North America & Asia-Pacific-Japan Filigran" [ref=e337]:
+                      - generic [ref=e338]: People Operations Partner - North America & Asia-Pacific-Japan
+                      - generic [ref=e339]: Filigran
+                    - cell "Ashby" [ref=e340]
+                    - cell "Avalon" [ref=e341]:
+                      - generic [ref=e342]:
+                        - img [ref=e343]
+                        - text: Avalon
+                    - cell "In progress" [ref=e346]:
+                      - generic [ref=e347]: In progress
+                    - cell "—" [ref=e349]
+                  - row "SWE - Backend Infrastructure Engineer Sesame Ashby Avalon In progress —" [ref=e350]:
+                    - cell "SWE - Backend Infrastructure Engineer Sesame" [ref=e351]:
+                      - generic [ref=e352]: SWE - Backend Infrastructure Engineer
+                      - generic [ref=e353]: Sesame
+                    - cell "Ashby" [ref=e354]
+                    - cell "Avalon" [ref=e355]:
+                      - generic [ref=e356]:
+                        - img [ref=e357]
+                        - text: Avalon
+                    - cell "In progress" [ref=e360]:
+                      - generic [ref=e361]: In progress
+                    - cell "—" [ref=e363]
+                  - row "Site Reliability Engineer (USA Only - 100% Remote) Close Ashby Avalon In progress —" [ref=e364]:
+                    - cell "Site Reliability Engineer (USA Only - 100% Remote) Close" [ref=e365]:
+                      - generic [ref=e366]: Site Reliability Engineer (USA Only - 100% Remote)
+                      - generic [ref=e367]: Close
+                    - cell "Ashby" [ref=e368]
+                    - cell "Avalon" [ref=e369]:
+                      - generic [ref=e370]:
+                        - img [ref=e371]
+                        - text: Avalon
+                    - cell "In progress" [ref=e374]:
+                      - generic [ref=e375]: In progress
+                    - cell "—" [ref=e377]
+                  - row "Customer Support Representative Anagram Ashby Avalon In progress —" [ref=e378]:
+                    - cell "Customer Support Representative Anagram" [ref=e379]:
+                      - generic [ref=e380]: Customer Support Representative
+                      - generic [ref=e381]: Anagram
+                    - cell "Ashby" [ref=e382]
+                    - cell "Avalon" [ref=e383]:
+                      - generic [ref=e384]:
+                        - img [ref=e385]
+                        - text: Avalon
+                    - cell "In progress" [ref=e388]:
+                      - generic [ref=e389]: In progress
+                    - cell "—" [ref=e391]
+                  - row "Assistant Controller Aduro Advisors Ashby Avalon In progress —" [ref=e392]:
+                    - cell "Assistant Controller Aduro Advisors" [ref=e393]:
+                      - generic [ref=e394]: Assistant Controller
+                      - generic [ref=e395]: Aduro Advisors
+                    - cell "Ashby" [ref=e396]
+                    - cell "Avalon" [ref=e397]:
+                      - generic [ref=e398]:
+                        - img [ref=e399]
+                        - text: Avalon
+                    - cell "In progress" [ref=e402]:
+                      - generic [ref=e403]: In progress
+                    - cell "—" [ref=e405]
+                  - row "Senior Software Engineer, Perpetuals Polymarket Ashby Avalon In progress —" [ref=e406]:
+                    - cell "Senior Software Engineer, Perpetuals Polymarket" [ref=e407]:
+                      - generic [ref=e408]: Senior Software Engineer, Perpetuals
+                      - generic [ref=e409]: Polymarket
+                    - cell "Ashby" [ref=e410]
+                    - cell "Avalon" [ref=e411]:
+                      - generic [ref=e412]:
+                        - img [ref=e413]
+                        - text: Avalon
+                    - cell "In progress" [ref=e416]:
+                      - generic [ref=e417]: In progress
+                    - cell "—" [ref=e419]
+                  - row "Senior Software Engineer Kong Ashby Avalon In progress —" [ref=e420]:
+                    - cell "Senior Software Engineer Kong" [ref=e421]:
+                      - generic [ref=e422]: Senior Software Engineer
+                      - generic [ref=e423]: Kong
+                    - cell "Ashby" [ref=e424]
+                    - cell "Avalon" [ref=e425]:
+                      - generic [ref=e426]:
+                        - img [ref=e427]
+                        - text: Avalon
+                    - cell "In progress" [ref=e430]:
+                      - generic [ref=e431]: In progress
+                    - cell "—" [ref=e433]
+                  - row "Product Owner, Agentic AI Jerry Ashby Avalon In progress —" [ref=e434]:
+                    - cell "Product Owner, Agentic AI Jerry" [ref=e435]:
+                      - generic [ref=e436]: Product Owner, Agentic AI
+                      - generic [ref=e437]: Jerry
+                    - cell "Ashby" [ref=e438]
+                    - cell "Avalon" [ref=e439]:
+                      - generic [ref=e440]:
+                        - img [ref=e441]
+                        - text: Avalon
+                    - cell "In progress" [ref=e444]:
+                      - generic [ref=e445]: In progress
+                    - cell "—" [ref=e447]
+                  - row "Backend Software Engineer - Active Learning Team Deepgram Ashby Avalon In progress —" [ref=e448]:
+                    - cell "Backend Software Engineer - Active Learning Team Deepgram" [ref=e449]:
+                      - generic [ref=e450]: Backend Software Engineer - Active Learning Team
+                      - generic [ref=e451]: Deepgram
+                    - cell "Ashby" [ref=e452]
+                    - cell "Avalon" [ref=e453]:
+                      - generic [ref=e454]:
+                        - img [ref=e455]
+                        - text: Avalon
+                    - cell "In progress" [ref=e458]:
+                      - generic [ref=e459]: In progress
+                    - cell "—" [ref=e461]
+                  - row "Senior Developer, Partnerships Engineering 1Password Ashby Avalon In progress —" [ref=e462]:
+                    - cell "Senior Developer, Partnerships Engineering 1Password" [ref=e463]:
+                      - generic [ref=e464]: Senior Developer, Partnerships Engineering
+                      - generic [ref=e465]: 1Password
+                    - cell "Ashby" [ref=e466]
+                    - cell "Avalon" [ref=e467]:
+                      - generic [ref=e468]:
+                        - img [ref=e469]
+                        - text: Avalon
+                    - cell "In progress" [ref=e472]:
+                      - generic [ref=e473]: In progress
+                    - cell "—" [ref=e475]
+                  - row "Software Engineer, AI (Senior, Back End) Kustomer Ashby Avalon In progress —" [ref=e476]:
+                    - cell "Software Engineer, AI (Senior, Back End) Kustomer" [ref=e477]:
+                      - generic [ref=e478]: Software Engineer, AI (Senior, Back End)
+                      - generic [ref=e479]: Kustomer
+                    - cell "Ashby" [ref=e480]
+                    - cell "Avalon" [ref=e481]:
+                      - generic [ref=e482]:
+                        - img [ref=e483]
+                        - text: Avalon
+                    - cell "In progress" [ref=e486]:
+                      - generic [ref=e487]: In progress
+                    - cell "—" [ref=e489]
+                  - row "Backend Software Engineer - Active Learning Team Deepgram Ashby Avalon In progress —" [ref=e490]:
+                    - cell "Backend Software Engineer - Active Learning Team Deepgram" [ref=e491]:
+                      - generic [ref=e492]: Backend Software Engineer - Active Learning Team
+                      - generic [ref=e493]: Deepgram
+                    - cell "Ashby" [ref=e494]
+                    - cell "Avalon" [ref=e495]:
+                      - generic [ref=e496]:
+                        - img [ref=e497]
+                        - text: Avalon
+                    - cell "In progress" [ref=e500]:
+                      - generic [ref=e501]: In progress
+                    - cell "—" [ref=e503]
+                  - row "Software Engineer - Support (USA Only - 100% Remote) Close Ashby Avalon In progress —" [ref=e504]:
+                    - cell "Software Engineer - Support (USA Only - 100% Remote) Close" [ref=e505]:
+                      - generic [ref=e506]: Software Engineer - Support (USA Only - 100% Remote)
+                      - generic [ref=e507]: Close
+                    - cell "Ashby" [ref=e508]
+                    - cell "Avalon" [ref=e509]:
+                      - generic [ref=e510]:
+                        - img [ref=e511]
+                        - text: Avalon
+                    - cell "In progress" [ref=e514]:
+                      - generic [ref=e515]: In progress
+                    - cell "—" [ref=e517]
+                  - row "Agentic AI Engineer Benchling Ashby Avalon In progress —" [ref=e518]:
+                    - cell "Agentic AI Engineer Benchling" [ref=e519]:
+                      - generic [ref=e520]: Agentic AI Engineer
+                      - generic [ref=e521]: Benchling
+                    - cell "Ashby" [ref=e522]
+                    - cell "Avalon" [ref=e523]:
+                      - generic [ref=e524]:
+                        - img [ref=e525]
+                        - text: Avalon
+                    - cell "In progress" [ref=e528]:
+                      - generic [ref=e529]: In progress
+                    - cell "—" [ref=e531]
+                  - row "Frontend Engineer, Financial Web Platform OpenAI Ashby Avalon In progress —" [ref=e532]:
+                    - cell "Frontend Engineer, Financial Web Platform OpenAI" [ref=e533]:
+                      - generic [ref=e534]: Frontend Engineer, Financial Web Platform
+                      - generic [ref=e535]: OpenAI
+                    - cell "Ashby" [ref=e536]
+                    - cell "Avalon" [ref=e537]:
+                      - generic [ref=e538]:
+                        - img [ref=e539]
+                        - text: Avalon
+                    - cell "In progress" [ref=e542]:
+                      - generic [ref=e543]: In progress
+                    - cell "—" [ref=e545]
+                  - row "Senior Solutions Engineer - Enterprise Semgrep Ashby Avalon In progress —" [ref=e546]:
+                    - cell "Senior Solutions Engineer - Enterprise Semgrep" [ref=e547]:
+                      - generic [ref=e548]: Senior Solutions Engineer - Enterprise
+                      - generic [ref=e549]: Semgrep
+                    - cell "Ashby" [ref=e550]
+                    - cell "Avalon" [ref=e551]:
+                      - generic [ref=e552]:
+                        - img [ref=e553]
+                        - text: Avalon
+                    - cell "In progress" [ref=e556]:
+                      - generic [ref=e557]: In progress
+                    - cell "—" [ref=e559]
+            - generic [ref=e561]:
+              - generic [ref=e562]:
+                - heading "Live Feed" [level=4] [ref=e563]:
+                  - img [ref=e564]
+                  - text: Live Feed
+                - generic [ref=e566]: Live
+              - generic [ref=e568]:
+                - generic [ref=e569]:
+                  - img [ref=e570]
+                  - generic [ref=e573]:
+                    - generic [ref=e574]:
+                      - generic [ref=e575]: 05:57:04
+                      - generic [ref=e576]: Melo
+                    - paragraph [ref=e577]: Skipped — marked handled — Edge Infrastructure Engineer I - Del · no application form found on the page
+                - generic [ref=e578]:
+                  - img [ref=e579]
+                  - generic [ref=e582]:
+                    - generic [ref=e583]:
+                      - generic [ref=e584]: 05:57:04
+                      - generic [ref=e585]: Eli Taylor
+                    - paragraph [ref=e586]: skipped — role @ company
+                - generic [ref=e587]:
+                  - img [ref=e588]
+                  - generic [ref=e590]:
+                    - generic [ref=e591]:
+                      - generic [ref=e592]: 05:57:04
+                      - generic [ref=e593]: Melo
+                    - paragraph [ref=e594]: Skipping job — no application form found on the page — will be marked handled
+                - generic [ref=e595]:
+                  - img [ref=e596]
+                  - generic [ref=e599]:
+                    - generic [ref=e600]:
+                      - generic [ref=e601]: 05:56:46
+                      - generic [ref=e602]: Melo
+                    - paragraph [ref=e603]: Job detected
+                - generic [ref=e604]:
+                  - img [ref=e605]
+                  - generic [ref=e608]:
+                    - generic [ref=e609]:
+                      - generic [ref=e610]: 05:56:46
+                      - generic [ref=e611]: Melo
+                    - paragraph [ref=e612]: Navigated — https://zayo.wd1.myworkdayjobs.com/Zayo_Careers/job/Remote---OH/Edge-Infrastructure-Engineer-I---Del_R0016534
+                - generic [ref=e613]:
+                  - img [ref=e614]
+                  - generic [ref=e617]:
+                    - generic [ref=e618]:
+                      - generic [ref=e619]: 05:56:13
+                      - generic [ref=e620]: Melo
+                    - paragraph [ref=e621]: "Profile — Eli Taylor · resume: AI"
+                - generic [ref=e622]:
+                  - img [ref=e623]
+                  - generic [ref=e626]:
+                    - generic [ref=e627]:
+                      - generic [ref=e628]: 05:56:13
+                      - generic [ref=e629]: Melo
+                    - paragraph [ref=e630]: Model — gpt-5.4-mini
+                - generic [ref=e631]:
+                  - img [ref=e632]
+                  - generic [ref=e635]:
+                    - generic [ref=e636]:
+                      - generic [ref=e637]: 05:56:13
+                      - generic [ref=e638]: Melo
+                    - paragraph [ref=e639]: Browser — Headed Chromium for Melo
+                - generic [ref=e640]:
+                  - img [ref=e641]
+                  - generic [ref=e644]:
+                    - generic [ref=e645]:
+                      - generic [ref=e646]: 05:56:13
+                      - generic [ref=e647]: Melo
+                    - paragraph [ref=e648]: Resume selected — AI · 15% skill match
+                - generic [ref=e649]:
+                  - img [ref=e650]
+                  - generic [ref=e652]:
+                    - generic [ref=e653]:
+                      - generic [ref=e654]: 05:55:57
+                      - generic [ref=e655]: Melo
+                    - paragraph [ref=e656]: Resume match issue — The operation was aborted due to timeout
+                - generic [ref=e657]:
+                  - img [ref=e658]
+                  - generic [ref=e660]:
+                    - generic [ref=e661]:
+                      - generic [ref=e662]: 05:55:57
+                      - generic [ref=e663]: Melo
+                    - paragraph [ref=e664]: No resume match — Could not rank resumeCatalog against JD skill profile.
+                - generic [ref=e665]:
+                  - img [ref=e666]
+                  - generic [ref=e669]:
+                    - generic [ref=e670]:
+                      - generic [ref=e671]: 05:55:57
+                      - generic [ref=e672]: Melo
+                    - paragraph [ref=e673]: Analyzing job description — scoring the role's weighted skill profile…
+                - generic [ref=e674]:
+                  - img [ref=e675]
+                  - generic [ref=e678]:
+                    - generic [ref=e679]:
+                      - generic [ref=e680]: 05:53:57
+                      - generic [ref=e681]: Melo
+                    - paragraph [ref=e682]: Analyzing job description — scoring the role's weighted skill profile…
+                - generic [ref=e683]:
+                  - img [ref=e684]
+                  - generic [ref=e687]:
+                    - generic [ref=e688]:
+                      - generic [ref=e689]: 05:53:55
+                      - generic [ref=e690]: Melo
+                    - paragraph [ref=e691]: Skipped — marked handled — Strategic Inside Sales Representative · no application form found on the page
+                - generic [ref=e692]:
+                  - img [ref=e693]
+                  - generic [ref=e696]:
+                    - generic [ref=e697]:
+                      - generic [ref=e698]: 05:53:55
+                      - generic [ref=e699]: Eli Taylor
+                    - paragraph [ref=e700]: skipped — Strategic Inside Sales Representative @ company
+                - generic [ref=e701]:
+                  - img [ref=e702]
+                  - generic [ref=e704]:
+                    - generic [ref=e705]:
+                      - generic [ref=e706]: 05:53:55
+                      - generic [ref=e707]: Melo
+                    - paragraph [ref=e708]: Skipping job — no application form found on the page — will be marked handled
+                - generic [ref=e709]:
+                  - img [ref=e710]
+                  - generic [ref=e713]:
+                    - generic [ref=e714]:
+                      - generic [ref=e715]: 05:53:42
+                      - generic [ref=e716]: Melo
+                    - paragraph [ref=e717]: Job detected — Strategic Inside Sales Representative
+                - generic [ref=e718]:
+                  - img [ref=e719]
+                  - generic [ref=e722]:
+                    - generic [ref=e723]:
+                      - generic [ref=e724]: 05:53:41
+                      - generic [ref=e725]: Melo
+                    - paragraph [ref=e726]: Navigated — https://usertesting.wd12.myworkdayjobs.com/UserTesting/job/Bellevue/Strategic-Inside-Sales-Representative_R-101208
+                - generic [ref=e727]:
+                  - img [ref=e728]
+                  - generic [ref=e731]:
+                    - generic [ref=e732]:
+                      - generic [ref=e733]: 05:53:24
+                      - generic [ref=e734]: Melo
+                    - paragraph [ref=e735]: Resume selected — Go · 8% skill match
+                - generic [ref=e736]:
+                  - img [ref=e737]
+                  - generic [ref=e740]:
+                    - generic [ref=e741]:
+                      - generic [ref=e742]: 05:53:24
+                      - generic [ref=e743]: Melo
+                    - paragraph [ref=e744]: "Profile — Eli Taylor · resume: Go"
+                - generic [ref=e745]:
+                  - img [ref=e746]
+                  - generic [ref=e749]:
+                    - generic [ref=e750]:
+                      - generic [ref=e751]: 05:53:24
+                      - generic [ref=e752]: Melo
+                    - paragraph [ref=e753]: Model — gpt-5.4-mini
+                - generic [ref=e754]:
+                  - img [ref=e755]
+                  - generic [ref=e758]:
+                    - generic [ref=e759]:
+                      - generic [ref=e760]: 05:53:24
+                      - generic [ref=e761]: Melo
+                    - paragraph [ref=e762]: Browser — Headed Chromium for Melo
+                - generic [ref=e763]:
+                  - img [ref=e764]
+                  - generic [ref=e767]:
+                    - generic [ref=e768]:
+                      - generic [ref=e769]: 05:53:22
+                      - generic [ref=e770]: Melo
+                    - paragraph [ref=e771]: Analyzing job description — scoring the role's weighted skill profile…
+                - generic [ref=e772]:
+                  - img [ref=e773]
+                  - generic [ref=e776]:
+                    - generic [ref=e777]:
+                      - generic [ref=e778]: 05:52:52
+                      - generic [ref=e779]: Delo
+                    - paragraph [ref=e780]: Marked applied in MongoDB — Robotics Application Engineer
+                - generic [ref=e781]:
+                  - img [ref=e782]
+                  - generic [ref=e785]:
+                    - generic [ref=e786]:
+                      - generic [ref=e787]: 05:52:52
+                      - generic [ref=e788]: Eli Taylor
+                    - paragraph [ref=e789]: Submitted — Robotics Application Engineer @ Bedrock Robotics Inc
+                - generic [ref=e790]:
+                  - img [ref=e791]
+                  - generic [ref=e794]:
+                    - generic [ref=e795]:
+                      - generic [ref=e796]: 05:52:52
+                      - generic [ref=e797]: Delo
+                    - paragraph [ref=e798]: Submitted ✓ (verified) — Success\n\nYour application was successfully submitted
+                - generic [ref=e799]:
+                  - img [ref=e800]
+                  - generic [ref=e803]:
+                    - generic [ref=e804]:
+                      - generic [ref=e805]: 05:52:44
+                      - generic [ref=e806]: Delo
+                    - paragraph [ref=e807]: Clicking Submit — Submit Application
+                - generic [ref=e808]:
+                  - img [ref=e809]
+                  - generic [ref=e812]:
+                    - generic [ref=e813]:
+                      - generic [ref=e814]: 05:52:37
+                      - generic [ref=e815]: Delo
+                    - paragraph [ref=e816]: Plan ready — gpt-4o-mini mapped 1 actions · 1 run-code · $0.0118 (47903 tokens)
+                - generic [ref=e817]:
+                  - img [ref=e818]
+                  - generic [ref=e821]:
+                    - generic [ref=e822]:
+                      - generic [ref=e823]: 05:52:37
+                      - generic [ref=e824]: Delo
+                    - paragraph [ref=e825]: "Run-code: Resume"
+                - generic [ref=e826]:
+                  - img [ref=e827]
+                  - generic [ref=e830]:
+                    - generic [ref=e831]:
+                      - generic [ref=e832]: 05:52:24
+                      - generic [ref=e833]: Delo
+                    - paragraph [ref=e834]: Looking at the form — gpt-4o-mini is reading the screenshot of the rejected form…
+                - generic [ref=e835]:
+                  - img [ref=e836]
+                  - generic [ref=e839]:
+                    - generic [ref=e840]:
+                      - generic [ref=e841]: 05:52:24
+                      - generic [ref=e842]: Delo
+                    - paragraph [ref=e843]: Re-planning — asking gpt-4o-mini to fix the form from Eli Taylor's profile…
+                - generic [ref=e844]:
+                  - img [ref=e845]
+                  - generic [ref=e848]:
+                    - generic [ref=e849]:
+                      - generic [ref=e850]: 05:52:24
+                      - generic [ref=e851]: Delo
+                    - paragraph [ref=e852]: "Re-reading form (attempt 2) — fixing: Resume"
+                - generic [ref=e853]:
+                  - img [ref=e854]
+                  - generic [ref=e856]:
+                    - generic [ref=e857]:
+                      - generic [ref=e858]: 05:52:24
+                      - generic [ref=e859]: Delo
+                    - paragraph [ref=e860]: Form needs corrections (attempt 1/3) — Resume
+                - generic [ref=e861]:
+                  - img [ref=e862]
+                  - generic [ref=e865]:
+                    - generic [ref=e866]:
+                      - generic [ref=e867]: 05:52:24
+                      - generic [ref=e868]: Delo
+                    - paragraph [ref=e869]: Re-planning — re-reading the form and answering the flagged fields…
+                - generic [ref=e870]:
+                  - img [ref=e871]
+                  - generic [ref=e874]:
+                    - generic [ref=e875]:
+                      - generic [ref=e876]: 05:52:15
+                      - generic [ref=e877]: Delo
+                    - paragraph [ref=e878]: Clicking Submit — Submit Application
+                - generic [ref=e879]:
+                  - img [ref=e880]
+                  - generic [ref=e883]:
+                    - generic [ref=e884]:
+                      - generic [ref=e885]: 05:52:15
+                      - generic [ref=e886]: Delo
+                    - paragraph [ref=e887]: "Selected \"3+ years technical deployment/field/autonomous: No\""
+                - generic [ref=e888]:
+                  - img [ref=e889]
+                  - generic [ref=e892]:
+                    - generic [ref=e893]:
+                      - generic [ref=e894]: 05:52:13
+                      - generic [ref=e895]: Delo
+                    - paragraph [ref=e896]: "Selected \"2+ years robotics production: No\""
+                - generic [ref=e897]:
+                  - img [ref=e898]
+                  - generic [ref=e901]:
+                    - generic [ref=e902]:
+                      - generic [ref=e903]: 05:52:12
+                      - generic [ref=e904]: Delo
+                    - paragraph [ref=e905]: "Selected \"Travel up to 10%: Yes\""
+                - generic [ref=e906]:
+                  - img [ref=e907]
+                  - generic [ref=e910]:
+                    - generic [ref=e911]:
+                      - generic [ref=e912]: 05:52:10
+                      - generic [ref=e913]: Delo
+                    - paragraph [ref=e914]: "Selected \"Require visa sponsorship: No\""
+                - generic [ref=e915]:
+                  - img [ref=e916]
+                  - generic [ref=e919]:
+                    - generic [ref=e920]:
+                      - generic [ref=e921]: 05:52:09
+                      - generic [ref=e922]: Delo
+                    - paragraph [ref=e923]: "Selected \"Work authorized in US: Yes\""
+                - generic [ref=e924]:
+                  - img [ref=e925]
+                  - generic [ref=e928]:
+                    - generic [ref=e929]:
+                      - generic [ref=e930]: 05:52:08
+                      - generic [ref=e931]: Delo
+                    - paragraph [ref=e932]: Checked "Remote"
+                - generic [ref=e933]:
+                  - img [ref=e934]
+                  - generic [ref=e937]:
+                    - generic [ref=e938]:
+                      - generic [ref=e939]: 05:52:07
+                      - generic [ref=e940]: Delo
+                    - paragraph [ref=e941]: Checked "Location preference"
+                - generic [ref=e942]:
+                  - img [ref=e943]
+                  - generic [ref=e946]:
+                    - generic [ref=e947]:
+                      - generic [ref=e948]: 05:52:05
+                      - generic [ref=e949]: Delo
+                    - paragraph [ref=e950]: Typed "LinkedIn" — https://www.linkedin.com/in/oli-taylor-0a602616b
+                - generic [ref=e951]:
+                  - img [ref=e952]
+                  - generic [ref=e955]:
+                    - generic [ref=e956]:
+                      - generic [ref=e957]: 05:52:05
+                      - generic [ref=e958]: Delo
+                    - paragraph [ref=e959]: Typed "Phone" — (425) 642-4153
+                - generic [ref=e960]:
+                  - img [ref=e961]
+                  - generic [ref=e964]:
+                    - generic [ref=e965]:
+                      - generic [ref=e966]: 05:52:04
+                      - generic [ref=e967]: Delo
+                    - paragraph [ref=e968]: Typed "Email" — ace.elitaylor@gmail.com
+                - generic [ref=e969]:
+                  - img [ref=e970]
+                  - generic [ref=e973]:
+                    - generic [ref=e974]:
+                      - generic [ref=e975]: 05:52:04
+                      - generic [ref=e976]: Delo
+                    - paragraph [ref=e977]: Typed "Name" — Eli Taylor
+                - generic [ref=e978]:
+                  - img [ref=e979]
+                  - generic [ref=e982]:
+                    - generic [ref=e983]:
+                      - generic [ref=e984]: 05:52:04
+                      - generic [ref=e985]: Delo
+                    - paragraph [ref=e986]: Plan ready — gpt-5.4-mini-2026-03-17 mapped 12 actions · $0.005426 (5595 tokens)
+                - generic [ref=e987]:
+                  - img [ref=e988]
+                  - generic [ref=e991]:
+                    - generic [ref=e992]:
+                      - generic [ref=e993]: 05:52:00
+                      - generic [ref=e994]: Delo
+                    - paragraph [ref=e995]: Reasoning — asking gpt-5.4-mini-2026-03-17 to fill the form from Eli Taylor's profile…
+                - generic [ref=e996]:
+                  - img [ref=e997]
+                  - generic [ref=e1000]:
+                    - generic [ref=e1001]:
+                      - generic [ref=e1002]: 05:52:00
+                      - generic [ref=e1003]: Delo
+                    - paragraph [ref=e1004]: Form parsed — 16 fields (8 text, 5 choices, 3 uploads)
+                - generic [ref=e1005]:
+                  - img [ref=e1006]
+                  - generic [ref=e1009]:
+                    - generic [ref=e1010]:
+                      - generic [ref=e1011]: 05:51:58
+                      - generic [ref=e1012]: Delo
+                    - paragraph [ref=e1013]: Job detected — Robotics Application Engineer @ Bedrock Robotics Inc
+        - generic [ref=e1014]:
+          - generic [ref=e1015]: AgentForce
+          - generic [ref=e1016]: ● 0 running
+          - generic [ref=e1017]: ● 0 in flight
+          - generic [ref=e1018]: ● 9398 posted
+          - generic [ref=e1019]: 6:03:12 AM
+    - generic [ref=e1029]:
+      - generic [ref=e1030]:
+        - generic [ref=e1031]:
+          - img [ref=e1033]
+          - generic [ref=e1036]:
+            - heading "Deploy Bidding Agent" [level=2] [ref=e1037]
+            - paragraph [ref=e1038]: Auto-bid posted jobs — résumé matched per JD
+        - button [ref=e1039]:
+          - img [ref=e1040]
+      - generic [ref=e1043]:
+        - generic [ref=e1044]:
+          - generic [ref=e1045]: Agent Name
+          - textbox "Agent Name" [ref=e1046]:
+            - /placeholder: e.g. React Full Stack apply
+            - text: Per-Job Test
+        - generic [ref=e1047]:
+          - generic [ref=e1048]: Applicant Profile
+          - combobox "Applicant Profile" [ref=e1049]:
+            - option "Select profile from MongoDB…"
+            - option "Adam ·"
+            - option "Bill ·"
+            - option "Brian ·"
+            - option "Carlos ·"
+            - option "Daryl Long ·"
+            - option "Eli Taylor · ace.elitaylor@gmail.com" [selected]
+            - option "Titan ·"
+            - option "agent ·"
+            - option "James Wang · jameswang.metaverse@gmail.com"
+            - option "john ·"
+            - option "mang ·"
+            - option "orchlinktest2 ·"
+            - option "orchtest2 ·"
+            - option "robin ·"
+            - option "Terry Huang · terry.huang.work@gmail.com"
+            - option "Tracy Nguyen · tracynguyen.home31@gmail.com"
+        - generic [ref=e1050]:
+          - generic [ref=e1051]: OpenAI Model
+          - combobox "OpenAI Model" [ref=e1052]:
+            - option "Select model…"
+            - option "gpt-3.5-turbo"
+            - option "gpt-3.5-turbo-0125"
+            - option "gpt-3.5-turbo-1106"
+            - option "gpt-3.5-turbo-16k"
+            - option "gpt-3.5-turbo-instruct"
+            - option "gpt-3.5-turbo-instruct-0914"
+            - option "gpt-4"
+            - option "gpt-4-0613"
+            - option "gpt-4-turbo"
+            - option "gpt-4-turbo-2024-04-09"
+            - option "gpt-4.1"
+            - option "gpt-4.1-2025-04-14"
+            - option "gpt-4.1-mini"
+            - option "gpt-4.1-mini-2025-04-14"
+            - option "gpt-4.1-nano"
+            - option "gpt-4.1-nano-2025-04-14"
+            - option "gpt-4o"
+            - option "gpt-4o-2024-05-13"
+            - option "gpt-4o-2024-08-06"
+            - option "gpt-4o-2024-11-20"
+            - option "gpt-4o-mini"
+            - option "gpt-4o-mini-2024-07-18"
+            - option "gpt-4o-mini-search-preview"
+            - option "gpt-4o-mini-search-preview-2025-03-11"
+            - option "gpt-4o-search-preview"
+            - option "gpt-4o-search-preview-2025-03-11"
+            - option "gpt-5"
+            - option "gpt-5-2025-08-07"
+            - option "gpt-5-chat-latest"
+            - option "gpt-5-codex"
+            - option "gpt-5-mini"
+            - option "gpt-5-mini-2025-08-07"
+            - option "gpt-5-nano" [selected]
+            - option "gpt-5-nano-2025-08-07"
+            - option "gpt-5-pro"
+            - option "gpt-5-pro-2025-10-06"
+            - option "gpt-5-search-api"
+            - option "gpt-5-search-api-2025-10-14"
+            - option "gpt-5.1"
+            - option "gpt-5.1-2025-11-13"
+            - option "gpt-5.1-chat-latest"
+            - option "gpt-5.1-codex"
+            - option "gpt-5.1-codex-max"
+            - option "gpt-5.1-codex-mini"
+            - option "gpt-5.2"
+            - option "gpt-5.2-2025-12-11"
+            - option "gpt-5.2-chat-latest"
+            - option "gpt-5.2-codex"
+            - option "gpt-5.2-pro"
+            - option "gpt-5.2-pro-2025-12-11"
+            - option "gpt-5.3-chat-latest"
+            - option "gpt-5.3-codex"
+            - option "gpt-5.4"
+            - option "gpt-5.4-2026-03-05"
+            - option "gpt-5.4-mini"
+            - option "gpt-5.4-mini-2026-03-17"
+            - option "gpt-5.4-nano"
+            - option "gpt-5.4-nano-2026-03-17"
+            - option "gpt-5.4-pro"
+            - option "gpt-5.4-pro-2026-03-05"
+            - option "gpt-5.5"
+            - option "gpt-5.5-2026-04-23"
+            - option "gpt-5.5-pro"
+            - option "gpt-5.5-pro-2026-04-23"
+            - option "o1"
+            - option "o1-2024-12-17"
+            - option "o1-pro"
+            - option "o1-pro-2025-03-19"
+            - option "o3"
+            - option "o3-2025-04-16"
+            - option "o3-mini"
+            - option "o3-mini-2025-01-31"
+            - option "o4-mini"
+            - option "o4-mini-2025-04-16"
+        - generic [ref=e1053]:
+          - generic [ref=e1054]: Job Source — posted, not yet applied
+          - combobox "Job Source — posted, not yet applied" [ref=e1055]:
+            - option "Select job source…"
+            - option "Greenhouse · Autobid — 1084 posted"
+            - option "Workday · Autobid — 831 posted"
+            - option "Lever · Extension — 572 posted"
+            - option "Applytojob · OneStep — 348 posted"
+            - option "Jobdiva · OneStep — 261 posted"
+            - option "iCIMS · MultiStep — 237 posted"
+            - option "Freshteam · OneStep — 149 posted"
+            - option "Ashby · Extension — 123 posted" [selected]
+            - option "OracleCloud · MultiStep — 102 posted"
+            - option "ADP · MultiStep — 85 posted"
+            - option "Personio · OneStep — 82 posted"
+            - option "UltiPro · MultiStep — 78 posted"
+            - option "Paylocity · MultiStep — 76 posted"
+            - option "Recruiterflow · OneStep — 66 posted"
+            - option "Rippling · OneStep — 65 posted"
+            - option "DayforceHCM · MultiStep — 64 posted"
+            - option "Zohorecruit · MultiStep — 61 posted"
+            - option "Workable · Extension — 53 posted"
+            - option "Gem · OneStep — 51 posted"
+            - option "Gusto · OneStep — 44 posted"
+            - option "Paycom · MultiStep — 40 posted"
+            - option "Jobvite · OneStep — 36 posted"
+            - option "Breezy · OneStep — 30 posted"
+            - option "SmartRecruiters · OneStep — 29 posted"
+            - option "Pinpointhq · OneStep — 27 posted"
+            - option "BambooHR · OneStep — 20 posted"
+            - option "Taleo · MultiStep — 12 posted"
+            - option "UKG · MultiStep — 9 posted"
+            - option "Recruitee · OneStep — 8 posted"
+            - option "Dover · OneStep — 6 posted"
+            - option "Teamtailor · OneStep — 5 posted"
+            - option "Rippling-ATS · OneStep — 2 posted"
+        - generic [ref=e1056]:
+          - generic [ref=e1057]:
+            - generic [ref=e1058]: Start index
+            - spinbutton "Start index" [ref=e1059]: "0"
+          - generic [ref=e1060]:
+            - generic [ref=e1061]: End index (exclusive)
+            - spinbutton "End index (exclusive)" [ref=e1062]: "3"
+        - paragraph [ref=e1074]: 123 posted Ashby jobs · agent will auto-bid 3 one by one (index 0–2).
+        - generic [ref=e1063] [cursor=pointer]:
+          - generic [ref=e1064]:
+            - generic [ref=e1065]:
+              - img [ref=e1066]
+              - text: Auto-submit when complete
+            - generic [ref=e1069]: Off = fill everything but stop at the review screen
+          - button "Auto-submit when complete Off = fill everything but stop at the review screen" [active] [ref=e1070]
+        - generic [ref=e1072]:
+          - button "Cancel" [ref=e1073] [cursor=pointer]
+          - button "Deploy Agent" [ref=e1075] [cursor=pointer]:
+            - img [ref=e1076]
+            - text: Deploy Agent
+  - generic [ref=e1020]: "24"

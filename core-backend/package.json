@@ -1,0 +1,22 @@
+{
+  "name": "@codex/core-backend",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    "./config.mjs": "./src/config.mjs",
+    "./db.mjs": "./src/db.mjs",
+    "./profiles.mjs": "./src/profiles.mjs",
+    "./resumes.mjs": "./src/resumes.mjs",
+    "./models.mjs": "./src/models.mjs",
+    "./pricing.mjs": "./src/pricing.mjs",
+    "./agent-runs.mjs": "./src/agent-runs.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "dev": "node src/server.mjs"
+  },
+  "dependencies": {
+    "mongodb": "^6.16.0"
+  }
+}

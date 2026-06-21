@@ -1,0 +1,30 @@
+{
+  "fullName": "John Doe",
+  "firstName": "John",
+  "lastName": "Doe",
+  "preferredName": "John",
+  "email": "john.doe@example.com",
+  "phone": "+1-415-555-0142",
+  "location": { "city": "Austin", "state": "TX", "country": "United States", "postalCode": "78701" },
+  "links": {
+    "linkedin": "https://linkedin.com/in/johndoe",
+    "github": "https://github.com/johndoe",
+    "portfolio": "https://johndoe.dev"
+  },
+  "workAuthorizedUS": true,
+  "requiresSponsorship": false,
+  "willingToRelocate": true,
+  "remotePreference": "remote",
+  "earliestStartDate": "2026-08-01",
+  "pronouns": "decline",
+  "howDidYouHear": "Company website",
+  "noticePeriod": "2 weeks",
+  "voluntarySelfId": {
+    "gender": "decline",
+    "raceEthnicity": "decline",
+    "veteranStatus": "decline",
+    "disabilityStatus": "decline"
+  },
+  "resumePath": "assets/resume.pdf",
+  "summary": "Full-stack engineer with 6+ years building web applications (React, Node, TypeScript, Python). Shipped agentic and AI-powered features at scale."
+}

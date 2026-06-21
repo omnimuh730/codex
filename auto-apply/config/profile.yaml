@@ -1,0 +1,66 @@
+# profile.yaml — applicant data (SINGLE SOURCE OF TRUTH)
+#
+# The agent fills forms ONLY from this file. Replace every value below with your real data
+# before running for real. Keep it truthful and complete. `null` means "not provided" — the
+# agent will flag it for you rather than invent a value.
+
+identity:
+  first_name: "Jane"
+  last_name: "Doe"
+  preferred_name: "Jane"
+  email: "jane.doe@example.com"
+  phone: "+1-555-0100"
+  location:
+    city: "Austin"
+    state: "TX"
+    country: "United States"
+    postal_code: "78701"
+
+links:
+  linkedin: "https://linkedin.com/in/janedoe"
+  github: "https://github.com/janedoe"
+  portfolio: "https://janedoe.dev"
+
+documents:
+  resume_path: "assets/resume.pdf"
+  cover_letter_path: "assets/cover_letter.md"   # optional; agent tailors per role
+
+work_authorization:
+  authorized_to_work_us: true
+  requires_sponsorship: false
+
+preferences:
+  desired_salary: null          # null => flag to human, do not invent
+  willing_to_relocate: true
+  remote_preference: "hybrid"   # one of: remote | hybrid | onsite
+  earliest_start_date: "2026-08-01"
+
+experience:                      # used for "add another" repeating sections
+  - company: "Acme Corp"
+    title: "Senior Engineer"
+    start: "2022-03"
+    end: "present"
+    location: "Remote"
+    bullets:
+      - "Led migration of X to Y, cutting latency 40%."
+  - company: "Globex"
+    title: "Engineer"
+    start: "2019-06"
+    end: "2022-02"
+    location: "Austin, TX"
+    bullets:
+      - "Built and shipped the billing service used by 2M users."
+
+education:
+  - school: "State University"
+    degree: "B.S."
+    field: "Computer Science"
+    start: "2015"
+    end: "2019"
+
+# Sensitive — leave as `decline` unless you intentionally set real values.
+voluntary_self_id:
+  gender: "decline"
+  race_ethnicity: "decline"
+  veteran_status: "decline"
+  disability_status: "decline"

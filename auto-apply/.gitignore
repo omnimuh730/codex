@@ -1,0 +1,17 @@
+# Per-run artifacts (snapshots, screenshots, transcripts) — keep the dir, not the contents.
+logs/runs/*
+!logs/runs/.gitkeep
+
+# Auth / storage state — NEVER commit (contains login tokens).
+.playwright/auth-state.json
+*.auth-state.json
+*auth*.json
+storage-state-*.json
+
+# Snapshot scratch files the CLI may drop.
+.playwright-cli/
+
+# Real resume may contain PII — uncomment if you don't want it tracked.
+# assets/resume.pdf
+
+.DS_Store
