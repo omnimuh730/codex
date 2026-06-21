@@ -27,7 +27,26 @@ import {
   materializeResume,
 } from "../../core-backend/src/user-resumes.mjs";
 import { PATHS } from "./config.mjs";
-import { awaitHumanResume } from "./human-handoff.mjs";
+import { spawn } from "node:child_process";
+import { awaitHumanResume, runSignal, wasManuallyPaused, wasStopped } from "./human-handoff.mjs";
+
+/** Deterministic playwright-cli session name for a run (server + agent agree). */
+export function sessionForRun(runId, agentName) {
+  return `af-${String(runId || agentName || "").replace(/[^A-Za-z0-9_-]/g, "") || Date.now().toString(36)}`;
+}
+
+/** Best-effort close of a run's browser session (crash-safe teardown / Stop). */
+export function closeBrowserSession(session) {
+  if (!session) return Promise.resolve();
+  return new Promise((resolve) => {
+    try {
+      const child = spawn("playwright-cli", [`-s=${session}`, "close"], { stdio: "ignore" });
+      const t = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} resolve(); }, 8000);
+      child.on("exit", () => { clearTimeout(t); resolve(); });
+      child.on("error", () => { clearTimeout(t); resolve(); });
+    } catch { resolve(); }
+  });
+}
 
 const SECRET_FIELDS = ["openaiApiKey", "deepseekApiKey", "ecomagentApiKey", "gmailAppPassword", "defaultPassword"];
 
@@ -190,7 +209,7 @@ export async function runApplicationCodex({
   // their OWN browser. PLAYWRIGHT_CLI_SESSION scopes EVERY playwright-cli command
   // to this session (verified), so codex needs no -s flag and can't touch another
   // agent's browser — provided it never runs the global close-all/kill-all.
-  const session = `af-${String(runId || agentName || "").replace(/[^A-Za-z0-9_-]/g, "") || Date.now().toString(36)}`;
+  const session = sessionForRun(runId, agentName);
 
   // Secrets the agent uses to self-resolve gates — passed via env so they never
   // enter the model prompt. codex reads OTP emails with the Gmail creds and types
@@ -214,8 +233,17 @@ export async function runApplicationCodex({
   let threadId = null;
   let resumeNote = null;
   const finalUsage = () => ({ ...total, costLabel: formatUsd(total.costUsd) });
+  const finishStopped = () => {
+    const usage = finalUsage();
+    emitUsage(emit, model, usage);
+    const message = "Stopped by user";
+    emit({ type: "done", result: "stopped", message, usage });
+    return { result: "stopped", message, usage, threadId };
+  };
 
   for (;;) {
+    if (runId && wasStopped(runId)) return finishStopped();
+
     const resuming = resumeNote != null;
     const res = await runCodexAgent({
       codexPath,
@@ -234,11 +262,28 @@ export async function runApplicationCodex({
       images: resuming ? undefined : images,
       threadId: resuming ? threadId : undefined,
       onEvent,
-      signal,
+      // Read the run's CURRENT signal each turn — Pause/Stop abort via a signal
+      // that's replaced with a fresh one on Resume.
+      signal: (runId && runSignal(runId)) || signal,
     });
     threadId = res.threadId || threadId;
     total = mergeUsage(total, usageToAgentForce(model, res.usage || lastUsage || {}));
     lastUsage = null;
+
+    // Stop is terminal and wins over a pause/error caused by the same abort.
+    if (runId && wasStopped(runId)) return finishStopped();
+
+    // Manual Pause: the user aborted this turn. Park until Resume (or Stop). The
+    // browser stays open; we continue the SAME thread on resume.
+    if (runId && wasManuallyPaused(runId)) {
+      step("warn", "Paused by user", "Run paused — browser left open. Resume to continue.");
+      emit({ type: "paused", reason: "Paused by user — resume to continue", threadId });
+      resumeNote = await awaitHumanResume(runId);
+      if (wasStopped(runId)) return finishStopped();
+      step("info", "Resumed", String(resumeNote).slice(0, 160));
+      emit({ type: "status", phase: "filling", message: "Resumed — continuing the application" });
+      continue;
+    }
 
     if (res.failure || res.exitCode !== 0) {
       const usage = finalUsage();
@@ -255,6 +300,7 @@ export async function runApplicationCodex({
       step("warn", "Human action needed", message || "A human must complete a step in the browser");
       emit({ type: "paused", reason: message || "Human action required in the browser", threadId });
       resumeNote = await awaitHumanResume(runId);
+      if (wasStopped(runId)) return finishStopped();
       step("info", "Resumed by human", String(resumeNote).slice(0, 160));
       emit({ type: "status", phase: "filling", message: "Resumed — continuing the application" });
       continue;
@@ -285,6 +331,19 @@ function appendLog(rec) {
  * Picks the best uploaded resume per job from MongoDB using JD skills.
  */
 export async function runBatchCodex(opts) {
+  const { jobs, source, agentName, emit, markApplied, controller = null, codexPath, proxyUrl } = opts;
+  const session = sessionForRun(opts.runId, agentName);
+  try {
+    return await runBatchCodexInner(opts, { session });
+  } finally {
+    // Crash-safe teardown: whenever the batch ends (done / error / stop), make sure
+    // this run's browser is closed so a failed agent never leaks a Chrome window.
+    // (A paused run never reaches here — it's parked awaiting Resume.)
+    await closeBrowserSession(session);
+  }
+}
+
+async function runBatchCodexInner(opts, { session }) {
   const { jobs, source, agentName, emit, markApplied, controller = null, codexPath, proxyUrl } = opts;
   const check = () => controller?.checkpoint?.();
   emit({ type: "batch", total: jobs.length, source, agentName });

@@ -4,9 +4,12 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { CONFIG, maskKey, PATHS } from "./config.mjs";
-import { runBatchCodex } from "./codex-apply.mjs";
+import { runBatchCodex, sessionForRun, closeBrowserSession } from "./codex-apply.mjs";
 import { ensureDeepSeekProxy } from "./proxy-control.mjs";
-import { resumeRun } from "./human-handoff.mjs";
+import {
+  resumeRun, registerRun, runSignal, pauseRun, stopRun, wasStopped, unregisterRun,
+} from "./human-handoff.mjs";
+import { sweepOrphanBrowsers } from "./browser-sweep.mjs";
 
 // codex-rs owns the agentic loop now; only this tiny outcome check remains here.
 const isSubmissionSuccess = (result) => result === "submitted";
@@ -521,6 +524,13 @@ const server = http.createServer(async (req, res) => {
 
     // codex-rs runs the application end-to-end. For deepseek-* models, start the
     // local Responses↔Chat proxy first and point codex at it.
+    // Register the run for Pause/Stop control. The controller hands codex the
+    // run's CURRENT abort signal each turn and lets the batch loop bail on Stop.
+    registerRun(run.id);
+    const controller = {
+      get signal() { return runSignal(run.id); },
+      checkpoint() { if (wasStopped(run.id)) throw new Error("stopped"); },
+    };
     (async () => {
       const proxyUrl = isDeepSeekModel(model) ? await ensureDeepSeekProxy() : undefined;
       await runBatchCodex({
@@ -529,10 +539,13 @@ const server = http.createServer(async (req, res) => {
         runId: run.id,
         codexPath: CONFIG.codexBin,
         proxyUrl,
+        controller,
         markApplied: (jobId) => markJobApplied({ jobId, applierId: profile.accountId }),
         emit: (e) => emitTo(run, e),
       });
-    })().catch(err => emitTo(run, { type: "done", result: "error", message: String(err?.message || err) }));
+    })()
+      .catch(err => emitTo(run, { type: "done", result: "error", message: String(err?.message || err) }))
+      .finally(() => unregisterRun(run.id));
     return;
   }
 
@@ -548,6 +561,36 @@ const server = http.createServer(async (req, res) => {
     const live = liveRuns.get(runId);
     if (live) emitTo(live, { type: "status", phase: "filling", message: "Resumed by human" });
     return sendJSON(res, 200, { ok: true, runId });
+  }
+
+  // Manual Pause: abort the in-flight codex turn; the headed browser stays open and
+  // the run parks until Resume. Surfaces as the same "paused" handoff banner.
+  const pauseMatch = pathname.match(/^\/api\/runs\/([^/]+)\/pause$/);
+  if (pauseMatch && req.method === "POST") {
+    const runId = pauseMatch[1];
+    const ok = pauseRun(runId);
+    if (!ok) return sendJSON(res, 409, { error: "run is not pausable (already paused, stopped, or finished)" });
+    return sendJSON(res, 200, { ok: true, runId });
+  }
+
+  // Stop (kill): abort the run for good AND close its browser session so nothing
+  // is left orphaned. Works even while paused.
+  const stopMatch = pathname.match(/^\/api\/runs\/([^/]+)\/stop$/);
+  if (stopMatch && req.method === "POST") {
+    const runId = stopMatch[1];
+    const ok = stopRun(runId);
+    await closeBrowserSession(sessionForRun(runId));
+    const live = liveRuns.get(runId);
+    if (live) emitTo(live, { type: "done", result: "stopped", message: "Stopped by user" });
+    if (!ok && !live) return sendJSON(res, 404, { error: "run not found or already finished" });
+    return sendJSON(res, 200, { ok: true, runId });
+  }
+
+  // Maintenance: close browser sessions whose run is no longer active (orphans
+  // left by a hard crash). Safe at any time — active runs are skipped.
+  if (pathname === "/api/browsers/sweep" && req.method === "POST") {
+    const closed = await sweepOrphanBrowsers((rid) => liveRuns.has(rid));
+    return sendJSON(res, 200, { ok: true, closed });
   }
 
   const streamMatch = pathname.match(/^\/api\/stream\/(.+)$/);
@@ -624,6 +667,11 @@ markInterruptedRuns()
       console.log(`  MongoDB             →  ${CONFIG.mongoUri}/${CONFIG.mongoDb}`);
       console.log(`  resume data         →  ${PATHS.coreBackend}/data`);
       console.log(`  playwright cwd      →  ${PATHS.autoApply}\n`);
+      // No runs survive a restart, so any live browser session is an orphan from a
+      // previous crash — sweep them so stale Chrome-for-Testing windows don't pile up.
+      sweepOrphanBrowsers(() => false)
+        .then((closed) => { if (closed.length) console.log(`  swept orphan browsers → ${closed.join(", ")}`); })
+        .catch(() => {});
     });
   })
   .catch(err => {
