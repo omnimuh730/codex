@@ -14,7 +14,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runCodexAgent } from "./codex-runner.mjs";
-import { isDeepSeekModel } from "../../core-backend/src/models.mjs";
+import { isDeepSeekModel, DEEPSEEK_BASE_URL } from "../../core-backend/src/models.mjs";
 import { costFromUsage, formatUsd, emptyUsage, mergeUsage } from "../../core-backend/src/pricing.mjs";
 import {
   buildJdSkillProfileText,
@@ -64,6 +64,12 @@ export function parseResult(finalMessage) {
 
 /** Compose the job-application task prompt fed to codex via stdin. */
 export function buildApplyPrompt({ url, job, profile, resumePath, autoSubmit, session }) {
+  // OTP fetcher invocation with this application's context so the LLM inside the
+  // script can pick the RIGHT email (among many) and extract the code from it.
+  const sh = (v) => String(v || "").replace(/"/g, "'").slice(0, 120);
+  const otpCmd =
+    `python3 "${OTP_SCRIPT}" --limit 10` +
+    ` --company "${sh(job?.company)}" --job "${sh(job?.title)}" --to "${sh(profile?.email)}"`;
   const submitLine = autoSubmit
     ? "AUTO-SUBMIT IS ENABLED for this run — this OVERRIDES the project's default review-gate / human-approval step described in AGENTS.md. After verifying every required field is filled and valid, CLICK the real Submit button to actually submit the application. Do NOT stop at a review gate and do NOT wait for human approval."
     : "Fill every required field, then STOP at the final review screen WITHOUT clicking the real Submit (the human will approve).";
@@ -84,7 +90,7 @@ ${submitLine}
 RESOLVE GATES YOURSELF — do NOT hand off to a human for these; you have what you need:
 - PREFER NO ACCOUNT: if the page offers "apply without an account", "continue as guest", "apply with résumé/LinkedIn", or lets you proceed without signing up, ALWAYS take that path. Only create an account or sign in if the application genuinely cannot be submitted otherwise.
 - ACCOUNT REGISTER / SIGN-IN: when required, use the applicant's email (in the profile above) and the password in the environment variable APPLICANT_PASSWORD. Type the password WITHOUT revealing it — run \`playwright-cli fill <ref> "$APPLICANT_PASSWORD"\` (the shell expands it; never print or echo the value). Use the same email+password for both register and sign-in.
-- EMAIL VERIFICATION / OTP / SECURITY CODE: the applicant's Gmail is readable. After triggering the email, fetch the code yourself by running \`python3 "${OTP_SCRIPT}" --query "newer_than:1h"\` — it prints JSON like {"found":true,"code":"12345678","link":"..."}. The email can take 10–60s, so re-run it a few times (short waits) until "found" is true, then type the \`code\` into the field(s) (split across multiple boxes if needed) and continue. Do NOT pause for a human for email codes.
+- EMAIL VERIFICATION / OTP / SECURITY CODE: the applicant's Gmail is readable. After triggering the email, fetch the code yourself by running \`${otpCmd}\` — it loads the recent inbox and uses an LLM to find THIS application's verification email and extract its code, printing JSON like {"found":true,"code":"Hjf55mRQ","link":"...","via":"llm"}. The email can take 10–60s, so re-run the SAME command a few times (short waits) until "found" is true; if it stays false after ~60s, add \`--include-spam\`. Then type the \`code\` EXACTLY as returned into the field(s) (preserve case; split one char per box if there are multiple boxes) and continue. If a \`link\` is returned instead of a code, open it with playwright-cli. Do NOT pause for a human for email codes.
 
 HUMAN HANDOFF — LAST RESORT ONLY: pause for a human ONLY if you truly cannot proceed yourself — an interactive/image CAPTCHA or bot-check you cannot solve, an SMS/phone verification (no phone access), or government-ID/document verification. Then do NOT close the browser; leave the page as-is and end with \`RESULT: paused — <precisely what the human must do, and on which screen>\`. Do NOT pause for email codes, account creation, or password entry — handle those yourself per above.
 
@@ -194,6 +200,11 @@ export async function runApplicationCodex({
     GMAIL_ADDRESS: profile.email || "",
     GMAIL_APP_PASSWORD: profile.gmailAppPassword || "",
     APPLICANT_PASSWORD: profile.defaultPassword || "",
+    // OTP fetcher's LLM endpoint (OpenAI-compatible) — same provider/key as this
+    // run, so it reads verification emails with a model instead of brittle regex.
+    OTP_LLM_API_KEY: apiKey || "",
+    OTP_LLM_BASE_URL: deepseek ? DEEPSEEK_BASE_URL : "https://api.openai.com/v1",
+    OTP_LLM_MODEL: model || "",
   };
 
   // Turn loop: one codex `exec` per turn. A human handoff ends a turn with

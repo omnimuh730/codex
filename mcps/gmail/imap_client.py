@@ -118,11 +118,14 @@ def parse_gmail_query(query: str) -> list[str]:
         elif lower in ("is:read", "read"):
             criteria.append("SEEN")
         elif lower.startswith("newer_than:"):
-            m = re.match(r"newer_than:(\d+)d", lower)
-            if m:
-                from datetime import date, timedelta
+            from datetime import date, timedelta
 
-                since = date.today() - timedelta(days=int(m.group(1)))
+            m = re.match(r"newer_than:(\d+)([dhm])", lower)
+            if m:
+                # IMAP SEARCH only has date (not time) granularity, so hours/minutes
+                # collapse to "since today"; days map to a back-dated SINCE.
+                days = int(m.group(1)) if m.group(2) == "d" else 0
+                since = date.today() - timedelta(days=days)
                 criteria.extend(["SINCE", since.strftime("%d-%b-%Y")])
         else:
             rest.append(token)
