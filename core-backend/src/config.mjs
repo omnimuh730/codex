@@ -31,6 +31,6 @@ const fileEnv = parseEnvFile(PATHS.envFile);
 
 export const CONFIG = {
   mongoUri: process.env.MONGODB_URI || fileEnv.MONGODB_URI || "mongodb://localhost:27017",
-  mongoDb: process.env.MONGODB_DB || fileEnv.MONGODB_DB || "AIMS_local",
+  mongoDb: process.env.MONGODB_DB || fileEnv.MONGODB_DB || "AthensDB",
   openaiApiKey: process.env.OPENAI_API_KEY || fileEnv.OPENAI_API_KEY || "",
 };

@@ -1,11 +1,11 @@
 import { ObjectId } from "mongodb";
 import { getDb, accountCollection } from "./db.mjs";
 import {
-  attachResumePath,
   listResumeStacks,
   profileSummary,
   transformAutoBidProfile,
 } from "./profiles.mjs";
+import { attachResumeFromLibrary, listUserResumesWithContent } from "./user-resumes.mjs";
 
 function parseId(id) {
   try {
@@ -28,7 +28,7 @@ export async function getProfileById(id, { stackName, jobContext } = {}) {
   const doc = await accountCollection(db).findOne({ _id: oid }, { projection: { password: 0 } });
   if (!doc) return null;
   const profile = transformAutoBidProfile(doc);
-  return attachResumePath(profile, { stackName, jobContext });
+  return await attachResumeFromLibrary(profile, { stackName });
 }
 
 export async function getProfileResumes(id) {
@@ -38,12 +38,23 @@ export async function getProfileResumes(id) {
   const doc = await accountCollection(db).findOne({ _id: oid }, { projection: { autoBidProfile: 1, resumeCatalog: 1, name: 1 } });
   if (!doc) return null;
   const folder = doc.autoBidProfile?.resumeFolderUrl || "";
+  const ownerId = String(doc._id);
+  const uploaded = await listUserResumesWithContent(ownerId, { ownerName: doc.name });
+  const mongoStacks = [...new Set(uploaded.map((r) => r.techStack).filter(Boolean))];
   return {
-    id: String(doc._id),
+    id: ownerId,
     name: doc.name,
     resumeFolderUrl: folder,
     resumeDir: folder,
-    stacks: listResumeStacks(folder),
+    stacks: mongoStacks.length ? mongoStacks : listResumeStacks(folder),
     catalog: Object.keys(doc.resumeCatalog || {}),
+    resumes: uploaded.map((r) => ({
+      id: String(r._id),
+      techStack: r.techStack,
+      fileName: r.fileName,
+      mimeType: r.mimeType,
+      isPrimary: Boolean(r.isPrimary),
+      analyzed: Boolean(r.analyzed),
+    })),
   };
 }

@@ -31,3 +31,7 @@ export function agentRunsCollection(dbConn) {
 export function agentRunEventsCollection(dbConn) {
   return dbConn.collection("agent_run_events");
 }
+
+export function userResumesCollection(dbConn) {
+  return dbConn.collection("user_resumes");
+}

@@ -1,8 +1,9 @@
-// AgentForce backend: deploy requests, MongoDB profiles, OpenAI models, SSE streaming.
+// Agent BFF: deploy requests, MongoDB profiles, SSE streaming for Athens.
+import "./bootstrap.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { CONFIG, maskKey, PATHS } from "./env.mjs";
+import { CONFIG, maskKey, PATHS } from "./config.mjs";
 import { runBatchCodex } from "./codex-apply.mjs";
 import { ensureDeepSeekProxy } from "./proxy-control.mjs";
 import { resumeRun } from "./human-handoff.mjs";
@@ -182,8 +183,8 @@ const server = http.createServer(async (req, res) => {
       model: CONFIG.openaiModel,
       keyPresent: !!CONFIG.openaiApiKey,
       autoSubmit: CONFIG.autoSubmit,
-      mongoDb: process.env.MONGODB_DB || "AIMS_local",
-      mongoUri: process.env.MONGODB_URI || "mongodb://localhost:27017",
+      mongoDb: CONFIG.mongoDb,
+      mongoUri: CONFIG.mongoUri,
       resumeDataPath: `${PATHS.coreBackend}/data`,
       playwrightCwd: PATHS.autoApply,
       applicationsLog: `${PATHS.autoApply}/logs/applications.jsonl`,
@@ -191,11 +192,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === "/" && req.method === "GET") {
-    const uiPort = process.env.VITE_PORT || "5999";
     return sendJSON(res, 200, {
-      service: "AgentForce API",
-      message: "This port is the API backend only. Open the dashboard in your browser.",
-      dashboard: `http://localhost:${uiPort}`,
+      service: "agent-bff",
+      message: "Agent orchestration API for Athens.",
       endpoints: [
         "GET  /api/health",
         "GET  /api/profiles",
@@ -618,11 +617,11 @@ server.on("error", (err) => {
 markInterruptedRuns()
   .then(() => {
     server.listen(CONFIG.port, () => {
-      console.log(`\n  AgentForce backend  →  http://localhost:${CONFIG.port}`);
+      console.log(`\n  agent-bff  →  http://localhost:${CONFIG.port}`);
       console.log(`  OpenAI model        →  ${CONFIG.openaiModel} (default)`);
       console.log(`  OpenAI key          →  ${maskKey(CONFIG.openaiApiKey)}`);
       console.log(`  auto-submit         →  ${CONFIG.autoSubmit}`);
-      console.log(`  MongoDB             →  ${process.env.MONGODB_URI || "mongodb://localhost:27017"}/${process.env.MONGODB_DB || "AIMS_local"}`);
+      console.log(`  MongoDB             →  ${CONFIG.mongoUri}/${CONFIG.mongoDb}`);
       console.log(`  resume data         →  ${PATHS.coreBackend}/data`);
       console.log(`  playwright cwd      →  ${PATHS.autoApply}\n`);
     });

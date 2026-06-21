@@ -156,7 +156,8 @@ export function resolveResumePdf(resumeFolderUrl, stackName) {
   return pdf ? path.join(stackDir, pdf) : null;
 }
 
-export function attachResumePath(profile, { stackName } = {}) {
+/** @deprecated Prefer attachResumeFromLibrary in user-resumes.mjs (MongoDB). */
+export function attachResumePathSync(profile, { stackName } = {}) {
   const stack = stackName || firstResumeStackWithPdf(profile.resumeCatalog, profile.resumeFolderUrl) || "";
   const pdfPath = stack ? resolveResumePdf(profile.resumeFolderUrl, stack) : null;
   return {
