@@ -428,7 +428,7 @@ async function runBatchCodexInner(opts, { session }) {
     // "paused" handoff event with the job index so the dashboard knows which job.
     const jobEmit = (e) => {
       if (e.type === "done") return emit({ ...e, type: "jobDone", jobIndex: i });
-      if (e.type === "paused") return emit({ ...e, jobIndex: i });
+      if (e.type === "paused" || e.type === "usage") return emit({ ...e, jobIndex: i });
       return emit(e);
     };
 

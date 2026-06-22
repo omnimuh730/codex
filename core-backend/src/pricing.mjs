@@ -3,7 +3,7 @@
 export const STANDARD_PRICING = [
   // DeepSeek (OpenAI-compatible API) — published per-1M list prices.
   { prefix: "deepseek-v4-pro", input: 0.55, cachedInput: 0.14, output: 2.19 },
-  { prefix: "deepseek-v4-flash", input: 0.27, cachedInput: 0.07, output: 1.10 },
+  { prefix: "deepseek-v4-flash", input: 0.0028, cachedInput: 0.14, output: 0.28 },
   { prefix: "gpt-5.5-pro", input: 30, cachedInput: null, output: 180 },
   { prefix: "gpt-5.5", input: 5, cachedInput: 0.5, output: 30 },
   { prefix: "gpt-5.4-pro", input: 30, cachedInput: null, output: 180 },

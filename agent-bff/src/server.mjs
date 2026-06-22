@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CONFIG, maskKey, PATHS } from "./config.mjs";
 import { runBatchCodex, sessionForRun, closeBrowserSession } from "./codex-apply.mjs";
+import { runBatchPlan } from "./plan-apply.mjs";
 import { ensureDeepSeekProxy } from "./proxy-control.mjs";
 import {
   resumeRun, registerRun, runSignal, pauseRun, stopRun, wasStopped, unregisterRun,
@@ -448,6 +449,8 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const name = (body.name || "").trim() || "Agent";
     const autoSubmit = body.autoSubmit ?? CONFIG.autoSubmit;
+    const mode = (body.mode || "turbo").trim();            // "turbo" (codex) | "plan"
+    const autoApprove = body.autoApprove ?? true;          // plan mode: auto-approve gates
     const profileId = (body.profileId || "").trim();
     const model = (body.model || "").trim() || CONFIG.openaiModel;
     const source = (body.source || "").trim();
@@ -532,6 +535,17 @@ const server = http.createServer(async (req, res) => {
       checkpoint() { if (wasStopped(run.id)) throw new Error("stopped"); },
     };
     (async () => {
+      if (mode === "plan") {
+        // Plan mode: LLM plans each page once; a deterministic runner executes the
+        // playwright-cli commands (no LLM per command). ~10–20× cheaper than codex.
+        await runBatchPlan({
+          jobs, source: source || "Direct", agentName: name, autoSubmit, autoApprove,
+          profile, model, apiKey, applierId: profile.accountId, runId: run.id,
+          markApplied: (jobId) => markJobApplied({ jobId, applierId: profile.accountId }),
+          emit: (e) => emitTo(run, e),
+        });
+        return;
+      }
       const proxyUrl = isDeepSeekModel(model) ? await ensureDeepSeekProxy() : undefined;
       await runBatchCodex({
         jobs, source: source || "Direct", agentName: name, autoSubmit, profile, model, apiKey,
