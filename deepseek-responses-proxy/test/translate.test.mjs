@@ -171,6 +171,20 @@ test("translateStream maps an upstream error chunk to response.failed", async ()
   assert.equal(failed.response.error.code, "rate_limit");
 });
 
+test("mapUsage forwards cache hit and miss token details", () => {
+  const u = mapUsage({
+    prompt_tokens: 1000,
+    prompt_cache_hit_tokens: 800,
+    prompt_cache_miss_tokens: 200,
+    completion_tokens: 50,
+    total_tokens: 1050,
+  });
+  assert.deepEqual(u.input_tokens_details, {
+    cached_tokens: 800,
+    prompt_cache_miss_tokens: 200,
+  });
+});
+
 test("mapUsage falls back to prompt_tokens_details.cached_tokens", () => {
   const u = mapUsage({ prompt_tokens: 5, completion_tokens: 1, total_tokens: 6, prompt_tokens_details: { cached_tokens: 2 } });
   assert.deepEqual(u.input_tokens_details, { cached_tokens: 2 });

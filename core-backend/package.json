@@ -14,7 +14,8 @@
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "dev": "node src/server.mjs"
+    "dev": "node src/server.mjs",
+    "test": "node --test src/pricing.test.mjs"
   },
   "dependencies": {
     "mongodb": "^6.16.0"

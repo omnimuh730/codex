@@ -22,9 +22,13 @@ export function mapUsage(usage) {
   const output = Number(usage?.completion_tokens ?? 0) || 0;
   const total = Number(usage?.total_tokens ?? input + output) || 0;
   const cached = Number(usage?.prompt_cache_hit_tokens ?? usage?.prompt_tokens_details?.cached_tokens ?? 0) || 0;
+  const miss = Number(usage?.prompt_cache_miss_tokens ?? 0) || 0;
+  const inputDetails = {};
+  if (cached) inputDetails.cached_tokens = cached;
+  if (miss) inputDetails.prompt_cache_miss_tokens = miss;
   return {
     input_tokens: input,
-    input_tokens_details: cached ? { cached_tokens: cached } : null,
+    input_tokens_details: Object.keys(inputDetails).length ? inputDetails : null,
     output_tokens: output,
     output_tokens_details: null,
     total_tokens: total,

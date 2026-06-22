@@ -56,7 +56,7 @@ test("parseResult extracts status + reason from the RESULT line", () => {
 });
 
 test("usageToAgentForce maps codex usage to dashboard usage + cost", () => {
-  // deepseek-v4-flash: input 0.27 / cached 0.07 / output 1.10 per 1M
+  // deepseek-v4-flash: miss $0.14 / hit $0.0028 / output $0.28 per 1M
   const u = usageToAgentForce("deepseek-v4-flash", {
     input_tokens: 1_000_000,
     cached_input_tokens: 0,
@@ -65,7 +65,7 @@ test("usageToAgentForce maps codex usage to dashboard usage + cost", () => {
   assert.equal(u.inputTokens, 1_000_000);
   assert.equal(u.outputTokens, 1_000_000);
   assert.ok(u.priced);
-  // 0.27 + 1.10 = 1.37
-  assert.ok(Math.abs(u.costUsd - 1.37) < 1e-9, `costUsd=${u.costUsd}`);
+  // 0.14 + 0.28 = 0.42
+  assert.ok(Math.abs(u.costUsd - 0.42) < 1e-9, `costUsd=${u.costUsd}`);
   assert.match(u.costLabel, /^\$/);
 });

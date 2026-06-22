@@ -140,6 +140,8 @@ async function planPage({ model, apiKey, snapshot, profile, job, autoSubmit, res
     prompt_tokens: u.prompt_tokens ?? 0,
     completion_tokens: u.completion_tokens ?? 0,
     total_tokens: u.total_tokens ?? 0,
+    prompt_cache_hit_tokens: u.prompt_tokens_details?.cached_tokens ?? u.prompt_cache_hit_tokens ?? 0,
+    prompt_cache_miss_tokens: u.prompt_cache_miss_tokens,
     prompt_tokens_details: { cached_tokens: u.prompt_tokens_details?.cached_tokens ?? u.prompt_cache_hit_tokens ?? 0 },
   });
   return { plan, usage };

@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { runCodexAgent } from "./codex-runner.mjs";
 import { isDeepSeekModel, DEEPSEEK_BASE_URL } from "../../core-backend/src/models.mjs";
-import { costFromUsage, formatUsd, emptyUsage, mergeUsage } from "../../core-backend/src/pricing.mjs";
+import { costFromUsage, formatUsd, emptyUsage, mergeUsage, usageDelta } from "../../core-backend/src/pricing.mjs";
 import {
   buildJdSkillProfileText,
   formatJdSkillProfileDisplay,
@@ -63,11 +63,17 @@ function profileForPrompt(profile) {
 
 /** Map codex turn usage → AgentForce usage+cost (reuses core-backend pricing). */
 export function usageToAgentForce(model, usage) {
+  const cached = Number(
+    usage?.cached_input_tokens ?? usage?.input_tokens_details?.cached_tokens ?? 0,
+  ) || 0;
+  const miss = usage?.input_tokens_details?.prompt_cache_miss_tokens;
   const u = costFromUsage(model, {
     prompt_tokens: usage?.input_tokens ?? 0,
     completion_tokens: usage?.output_tokens ?? 0,
-    total_tokens: (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
-    prompt_tokens_details: { cached_tokens: usage?.cached_input_tokens ?? 0 },
+    total_tokens: usage?.total_tokens ?? (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
+    prompt_cache_hit_tokens: cached,
+    ...(miss != null && miss !== "" ? { prompt_cache_miss_tokens: miss } : {}),
+    prompt_tokens_details: { cached_tokens: cached },
   });
   return { ...u, costLabel: formatUsd(u.costUsd) };
 }
@@ -230,8 +236,9 @@ export async function runApplicationCodex({
 
   // Turn loop: one codex `exec` per turn. A human handoff ends a turn with
   // `paused`; we await the human, then continue the SAME session via thread
-  // resume. Usage accumulates across turns.
+  // resume. Usage accumulates across turns (delta per exec when resuming).
   let total = emptyUsage();
+  let lastExecUsage = null;
   let threadId = null;
   let resumeNote = null;
   const finalUsage = () => ({ ...total, costLabel: formatUsd(total.costUsd) });
@@ -269,7 +276,10 @@ export async function runApplicationCodex({
       signal: (runId && runSignal(runId)) || signal,
     });
     threadId = res.threadId || threadId;
-    total = mergeUsage(total, usageToAgentForce(model, res.usage || lastUsage || {}));
+    const raw = usageToAgentForce(model, res.usage || lastUsage || {});
+    const increment = lastExecUsage ? usageDelta(lastExecUsage, raw) : raw;
+    total = mergeUsage(total, increment);
+    lastExecUsage = raw;
     lastUsage = null;
 
     // Stop is terminal and wins over a pause/error caused by the same abort.

@@ -1,9 +1,12 @@
-// Standard-tier text token pricing per 1M tokens (input, cached input, output).
-// Sourced from price-policy.md — longest prefix wins at lookup time.
+// Standard-tier text token pricing per 1M tokens.
+// OpenAI: `input` = uncached prompt rate, `cachedInput` = cached prompt rate.
+// DeepSeek V4: `input` = cache-MISS rate, `cachedInput` = cache-HIT rate
+//   (https://api-docs.deepseek.com/quick_start/pricing).
+// Longest prefix wins at lookup time.
 export const STANDARD_PRICING = [
-  // DeepSeek (OpenAI-compatible API) — published per-1M list prices.
-  { prefix: "deepseek-v4-pro", input: 0.55, cachedInput: 0.14, output: 2.19 },
-  { prefix: "deepseek-v4-flash", input: 0.0028, cachedInput: 0.14, output: 0.28 },
+  // DeepSeek — official V4 list prices (USD per 1M tokens).
+  { prefix: "deepseek-v4-pro", input: 0.435, cachedInput: 0.003625, output: 0.87 },
+  { prefix: "deepseek-v4-flash", input: 0.14, cachedInput: 0.0028, output: 0.28 },
   { prefix: "gpt-5.5-pro", input: 30, cachedInput: null, output: 180 },
   { prefix: "gpt-5.5", input: 5, cachedInput: 0.5, output: 30 },
   { prefix: "gpt-5.4-pro", input: 30, cachedInput: null, output: 180 },
@@ -73,28 +76,81 @@ export function mergeUsage(a, b) {
   };
 }
 
+/** Subtract cumulative usage `prev` from `next` (for thread-resume delta billing). */
+export function usageDelta(prev, next) {
+  if (!next) return emptyUsage();
+  if (!prev) return { ...next };
+  const d = (a, b) => Math.max(0, Number(b ?? 0) - Number(a ?? 0));
+  const inputTokens = d(prev.inputTokens, next.inputTokens);
+  const cachedTokens = d(prev.cachedTokens, next.cachedTokens);
+  const outputTokens = d(prev.outputTokens, next.outputTokens);
+  const totalTokens = d(prev.totalTokens, next.totalTokens);
+  const costUsd = d(prev.costUsd, next.costUsd);
+  return {
+    inputTokens,
+    cachedTokens,
+    outputTokens,
+    totalTokens,
+    costUsd,
+    priced: Boolean(next.priced),
+  };
+}
+
+/**
+ * Split raw provider usage into cache-miss input, cache-hit input, and output.
+ * Returns { cacheMiss, cacheHit, outputTokens, totalTokens }.
+ */
+export function parsePromptUsage(usage) {
+  const outputTokens = Number(usage?.completion_tokens ?? usage?.output_tokens ?? 0) || 0;
+  const promptTokens = Number(usage?.prompt_tokens ?? usage?.input_tokens ?? 0) || 0;
+
+  const cacheHit = Number(
+    usage?.prompt_cache_hit_tokens
+      ?? usage?.prompt_tokens_details?.cached_tokens
+      ?? usage?.input_tokens_details?.cached_tokens
+      ?? usage?.cached_input_tokens
+      ?? 0,
+  ) || 0;
+
+  const explicitMiss = usage?.prompt_cache_miss_tokens;
+  const cacheMiss =
+    explicitMiss != null && explicitMiss !== ""
+      ? Number(explicitMiss) || 0
+      : Math.max(0, promptTokens - cacheHit);
+
+  const totalTokens = Number(usage?.total_tokens ?? cacheMiss + cacheHit + outputTokens) || 0;
+
+  return { cacheMiss, cacheHit, outputTokens, totalTokens };
+}
+
 /** @param {string} model @param {import("openai").OpenAI.Completions.CompletionUsage | Record<string, unknown>} usage */
 export function costFromUsage(model, usage) {
   const rates = findPricing(model);
-  const promptTokens = Number(usage?.prompt_tokens || 0);
-  const completionTokens = Number(usage?.completion_tokens || 0);
-  const totalTokens = Number(usage?.total_tokens || promptTokens + completionTokens);
-  // OpenAI reports cache hits under prompt_tokens_details.cached_tokens;
-  // DeepSeek reports them as prompt_cache_hit_tokens — accept either.
-  const cachedTokens = Number(
-    usage?.prompt_tokens_details?.cached_tokens ?? usage?.prompt_cache_hit_tokens ?? 0,
-  );
-  const inputTokens = Math.max(0, promptTokens - cachedTokens);
+  const { cacheMiss, cacheHit, outputTokens, totalTokens } = parsePromptUsage(usage);
 
   if (!rates) {
-    return { inputTokens, cachedTokens, outputTokens: completionTokens, totalTokens, costUsd: 0, priced: false };
+    return {
+      inputTokens: cacheMiss,
+      cachedTokens: cacheHit,
+      outputTokens,
+      totalTokens,
+      costUsd: 0,
+      priced: false,
+    };
   }
 
   const cachedRate = rates.cachedInput ?? rates.input;
   const costUsd =
-    (inputTokens * rates.input + cachedTokens * cachedRate + completionTokens * rates.output) / 1_000_000;
+    (cacheMiss * rates.input + cacheHit * cachedRate + outputTokens * rates.output) / 1_000_000;
 
-  return { inputTokens, cachedTokens, outputTokens: completionTokens, totalTokens, costUsd, priced: true };
+  return {
+    inputTokens: cacheMiss,
+    cachedTokens: cacheHit,
+    outputTokens,
+    totalTokens,
+    costUsd,
+    priced: true,
+  };
 }
 
 export function formatUsd(amount) {
