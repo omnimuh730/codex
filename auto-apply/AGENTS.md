@@ -13,13 +13,33 @@ execute every run.**
 
 ## The one rule that matters
 
-**Read the snapshot before every decision. Re-snapshot after every action that changes the
-page.** Element refs (`e15`, `e3`, …) are invalidated by *any* page mutation — navigation, a
-custom dropdown opening, an "add another" reveal, a conditional field, a validation
-re-render. Acting on a stale ref hits the wrong element. When in doubt, `snapshot` again.
+**Read the snapshot, then drive the page with ONE plain `playwright-cli` verb per step. Use
+only the AI's reasoning + playwright-cli's own commands — no custom scripts, no hardcoded
+selectors, no vendor-specific logic.** Element refs (`e15`, …) are invalidated by any page
+mutation (navigation, a dropdown opening, an "add another" reveal, a conditional field, a
+validation re-render), so re-snapshot after an action that changes the page and act on the
+fresh ref. Form structure varies across ATS vendors — read the live page each step.
 
-Form structure is unpredictable across ATS vendors, so **do not hardcode selectors or assume
-a fixed page sequence** — read the live snapshot every step.
+**Custom dropdowns / comboboxes (React-Select, Workday, etc.) — handle generically:** their
+selected value lives in the **accessibility snapshot** and on screen, NOT in the input's
+`.value`. To set one: `click` the control → `type` the option text → the choices appear in the
+next snapshot as `option` nodes → `click` the matching one. That's it — plain verbs.
+
+**NEVER probe the DOM/React internals to confirm a value** — no `run-code` reading
+`outerHTML`, React props, hidden inputs, or CSS classes like `select__single-value`. That
+rabbit hole is the #1 cost sink. **To verify, take ONE snapshot and read the value from the
+accessibility tree** (it shows what a human sees). Trust it and move on.
+
+## Context discipline (keeps cost down)
+
+The conversation is re-sent every step, so anything you print into it is paid for again and
+again. Keep it lean:
+- **Snapshot to a FILE, never to stdout:** `playwright-cli snapshot --filename=$RUN_DIR/NN.yml --depth=12`.
+  A full snapshot is ~2,500 tokens; do not `cat` it. To inspect, grep only what you need:
+  `grep -nE '(textbox|combobox|listbox|radio|checkbox|button|ref=)' $RUN_DIR/NN.yml`.
+- Don't `cat` config/procedure files into context — the rules you need are already here.
+- One verb per step is fine; what kills cost is dumping big snapshots and probing internals,
+  not the number of `fill`/`click` commands.
 
 ---
 

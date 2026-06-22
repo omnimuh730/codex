@@ -2,8 +2,11 @@
 
 > You are the runtime operator. Execute these steps in order for **one** application URL.
 > Read [`../AGENTS.md`](../AGENTS.md) for the command cheat-sheet and [`../Plan.md`](../Plan.md)
-> for the design. **The cardinal rule: read the snapshot before every decision, and
-> re-snapshot after every action that changes the page — refs (`e12`, …) die on any mutation.**
+> for the design. **The cardinal rule: read the snapshot, then drive the page with ONE plain
+> `playwright-cli` verb per step — AI reasoning + playwright-cli only, no custom scripts or
+> hardcoded selectors. Re-snapshot after an action that mutates the page. NEVER probe DOM/React
+> internals to verify a value — read it from one snapshot. Snapshot to a FILE and `grep` it;
+> never dump a full snapshot into the conversation.**
 >
 > All commands below were verified against `playwright-cli` v0.1.x. Confirm with
 > `playwright-cli --help` if your version differs. Run everything from the project root
@@ -63,26 +66,29 @@ playwright-cli snapshot --filename=$RUN_DIR/02-form.yml
 
 ## R4 — Per-page fill loop  (repeat for every wizard step)
 
-1. **Snapshot** the current step (`playwright-cli snapshot --filename=$RUN_DIR/NN-step.yml`).
-2. **Enumerate** every fillable element from the tree — note role, accessible name, current
-   state, and `ref`: `textbox`, `combobox`, `listbox`, `radio`, `checkbox`,
-   `button [expanded]` (custom dropdown), file input, date field.
-3. **Decide** each value using the Field-Handling Playbook below + `profile.yaml` / `qa_bank.yaml`.
+1. **Snapshot to a file, read compactly.** `playwright-cli snapshot --filename=$RUN_DIR/NN-step.yml --depth=12`,
+   then `grep -nE '(textbox|combobox|listbox|radio|checkbox|button|ref=)' $RUN_DIR/NN-step.yml`.
+   Never `cat` the whole snapshot into the conversation.
+2. **Enumerate** the fillable elements from that grep — role, accessible name, current state, `ref`.
+3. **Decide** each value with the Field-Handling Playbook + `profile.yaml` / `qa_bank.yaml`.
    If a value can't be determined or is high-stakes/low-confidence → add `{name, why}` to
-   `fields_flagged` and do NOT guess.
-4. **Apply** each value (see Playbook). After any action that re-renders (custom dropdown
-   open, "add another", a conditional reveal, a validation error) → **re-snapshot** before the
-   next element. Use human-ish pacing; don't fire 30 actions in 200 ms.
+   `fields_flagged`; do NOT guess.
+4. **Apply** each value with ONE plain playwright-cli verb (`fill` / `select` / `check` / `click`),
+   one step at a time:
+   - **Native** `textbox` → `fill <ref> "value"`; native `<select>` → `select <ref> "label"`;
+     `checkbox`/`radio` → `check <ref>` / `click <ref>`.
+   - **Custom combobox** (React-Select etc., value not in `.value`) → `click <ref>` → `type "option text"`
+     → re-snapshot → `click` the option's fresh ref. Plain verbs only.
+   After an action that re-renders, re-snapshot before the next ref (it may have moved).
 5. **Uploads**: prefer native — `playwright-cli click <upload-ref>` then
-   `playwright-cli upload assets/resume.pdf`. For a hidden input with no clickable control,
-   use `scripts/upload_file.js` (set `window.__AA_UPLOAD` first — see the script header).
-6. **Advance**: find the step's "Next"/"Continue"/"Save and Continue" control, `click` it, then
-   `playwright-cli run-code --filename=scripts/wait_stable.js` (or a semantic wait on the next
-   heading). Do not blind-`sleep`; do not tight-poll `snapshot`.
-7. **Re-snapshot.** Another form step → repeat R4. CAPTCHA → R6. Review/summary screen → R5.
-
-After clicking Next, snapshot for `alert`/error roles tied to fields. If found, fix the
-offending field and retry the step, up to `agent.max_step_retries` times, then flag it.
+   `playwright-cli upload assets/resume.pdf`. Hidden input → `scripts/upload_file.js`.
+6. **Verify from the snapshot, not the DOM.** Re-snapshot (to file) and confirm each field shows
+   its value in the accessibility tree. **Do NOT `run-code` to inspect `outerHTML`/React props/
+   hidden inputs/CSS classes** — that is the biggest waste; trust the snapshot. Run
+   `scripts/detect_errors.js` for validation errors; fix only the offenders (retry up to
+   `agent.max_step_retries`), else flag.
+7. **Advance**: `click` "Next"/"Continue"/"Submit", then `scripts/wait_stable.js`. Do not blind-`sleep`
+   or tight-poll `snapshot`. Another form step → repeat R4. CAPTCHA → R6. Review screen → R5.
 
 ## R5 — Review gate (G1)
 
