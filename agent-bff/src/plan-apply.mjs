@@ -11,6 +11,7 @@
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { sessionForRun, closeBrowserSession } from "./codex-apply.mjs";
 import { isDeepSeekModel, DEEPSEEK_BASE_URL } from "../../core-backend/src/models.mjs";
@@ -49,12 +50,59 @@ function pw(session, args, { timeout = 60000, env = {} } = {}) {
   });
 }
 
+// Generic DOM enumeration used ONLY when the accessibility snapshot is empty (some sites —
+// e.g. Ashby behind a consent overlay — render the form but expose an empty a11y tree, so any
+// snapshot-based agent is blind). Not vendor-specific: it lists whatever interactive elements
+// exist, with stable CSS-selector "refs" the planner targets exactly like aria refs.
+const DOM_FIELDS_JS = `async page => { return await page.evaluate(() => {
+  const css = (el) => el.id ? '#' + CSS.escape(el.id) : (el.getAttribute('name') ? el.tagName.toLowerCase() + '[name="' + el.getAttribute('name') + '"]' : '');
+  const label = (el) => el.getAttribute('aria-label') || (el.labels && el.labels[0] && el.labels[0].innerText) || el.getAttribute('placeholder') || el.getAttribute('name') || (el.innerText || '').trim();
+  const vis = (el) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  const out = []; let i = 0;
+  for (const el of document.querySelectorAll('input,textarea,select,button,[role=button],[role=combobox],a[href]')) {
+    const tag = el.tagName.toLowerCase(); const type = (el.getAttribute('type') || tag).toLowerCase();
+    if (type === 'hidden') continue; if (!vis(el)) continue;
+    let ref = css(el); if (!ref) { ref = '[data-aa="f' + i + '"]'; el.setAttribute('data-aa', 'f' + i); } i++;
+    const role = tag === 'select' ? 'combobox' : (type === 'checkbox' || type === 'radio') ? type : (tag === 'button' || type === 'button' || type === 'submit' || el.getAttribute('role') === 'button') ? 'button' : (tag === 'a') ? 'link' : 'textbox';
+    const opts = tag === 'select' ? [...el.options].map((o) => (o.text || '').trim()).filter(Boolean).slice(0, 25) : null;
+    out.push({ ref, role, name: (label(el) || '').replace(/\\s+/g, ' ').trim().slice(0, 70), value: (el.value || '').slice(0, 40), opts });
+  }
+  return out;
+}); }`;
+
+async function domFallbackSnapshot(session) {
+  const r = await pw(session, ["run-code", DOM_FIELDS_JS, "--raw"]);
+  let list;
+  try {
+    const m = (r.out || "").match(/\[[\s\S]*\]/);
+    list = m ? JSON.parse(m[0]) : null;
+  } catch { list = null; }
+  if (!Array.isArray(list) || !list.length) return "";
+  const lines = list.map((f) => {
+    const opts = f.opts && f.opts.length ? `  options: ${f.opts.join(", ")}` : "";
+    const val = f.value ? ` value="${f.value}"` : "";
+    return `- ${f.role} "${f.name}" [ref=${f.ref}]${val}${opts}`;
+  });
+  return `DOM FALLBACK — the accessibility tree was empty, so target elements by these CSS-selector refs (use them exactly in "ref"):\n${lines.join("\n")}`;
+}
+
 async function snapshotPage(session, runDir, n) {
   const file = path.join(runDir, `${String(n).padStart(2, "0")}-snap.yml`);
-  const r = await pw(session, ["snapshot", "--filename", file, "--depth", "14"]);
-  let tree = r.out || "";
-  try { if (fs.existsSync(file)) tree = fs.readFileSync(file, "utf8"); } catch {}
-  // Cap what we feed the planner (one call, so a full page is fine, but bound it).
+  let tree = "";
+  // SPAs (Ashby, Workday, Lever…) render slowly and some expose an empty a11y tree. Each
+  // round: settle → try the a11y snapshot → if empty, try a generic DOM read → else wait and
+  // retry (up to ~70s). A page that never renders (e.g. bot-blocked) returns empty → the
+  // planner will mark it skip rather than hang.
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await pw(session, ["run-code", "--filename=scripts/wait_stable.js"], { timeout: 20000 }).catch(() => {});
+    const r = await pw(session, ["snapshot", "--filename", file, "--depth", "14"]);
+    tree = r.out || "";
+    try { if (fs.existsSync(file)) tree = fs.readFileSync(file, "utf8"); } catch {}
+    if (tree.length > 300 && /ref=|textbox|combobox|button|heading|link/i.test(tree)) break;
+    const dom = await domFallbackSnapshot(session).catch(() => "");
+    if (dom) return dom.slice(0, 14000);
+    await new Promise((res) => setTimeout(res, 3000));
+  }
   return tree.slice(0, 14000);
 }
 
@@ -91,9 +139,11 @@ const PLAN_SCHEMA = `Return ONLY a JSON object:
   "steps": [
     {"action":"fill|select|check|uncheck|click|type|press|upload","ref":"<exact ref from the snapshot, e.g. e23>","value":"<value if needed>","label":"<field name>","reveals":<true if this action opens a dropdown / adds rows / mutates the DOM>}
   ],
-  "next": "resnapshot | submit | done | human | otp",
+  "next": "resnapshot | submit | done | human | otp | skip | login",
   "otp_refs": ["<refs of the security/verification code boxes, only when next=otp>"],
   "human_reason": "<only when next=human: the interactive captcha / id check you cannot do>",
+  "skip_reason": "<only when next=skip: e.g. job expired / no longer accepting applications / error page>",
+  "needs_account_creation": <true only when next=login AND this is a NEW-account signup that needs email confirmation you cannot complete>,
   "flagged": [{"field":"<name>","why":"<why you could not fill it>"}]
 }`;
 
@@ -104,7 +154,12 @@ const PLAN_RULES = `Rules:
 - Native <select> → action "select" with the option label. Checkbox/radio → "check".
 - Resume upload: action "upload" with "file":"resume".
 - EEO / voluntary self-id → choose decline / "prefer not to say". Marketing/SMS consent → No. Never invent data; if a value isn't derivable, omit the step and add it to "flagged".
-- When every required field on the page is filled: "next":"submit" (if auto-submit) including the submit button click as the last step, else "next":"done".
+- COOKIE / PRIVACY CONSENT BANNER FIRST: if the page shows a cookie / privacy / consent banner or dialog (text like "This website stores cookies", "We use cookies", "Privacy"), your FIRST step must be to dismiss it — click its "Accept" / "Accept All" / "Agree" / "I Accept" / "Got it" / "Allow all" control (it may be a button or link). A consent overlay blocks clicks on the real page (e.g. the Apply button), so it must be cleared before anything else. Then "next":"resnapshot".
+- START APPLICATION / APPLY MENU: if this is a job DESCRIPTION page (not the form yet) with an "Apply" / "Apply Now" / "Start Your Application" button, click it ONCE → "next":"resnapshot". Clicking Apply often reveals an application-method choice (e.g. "Autofill with Resume", "Apply Manually", "Use My Last Application") or a sign-in. ALWAYS PREFER "Autofill with Resume" / "Apply with Resume" / "Use a résumé" when offered (common on Workday): select it, then upload the résumé (action "upload", file "resume") so the form auto-populates, then review/fill anything missing. Only "Apply Manually" if no autofill/résumé option exists.
+- ANTI-LOOP (critical): read "ALREADY DONE" — NEVER repeat the same click you just made. If you clicked a button and the page still looks the same, that click already opened a menu/section, a sign-in, or a new view — act on the NEW thing (choose the Autofill/Apply-method option, sign in, scroll, etc.), do NOT click the same button again. If you have clicked the same control ~2 times with no progress, treat the posting as not reachable: "next":"skip" with skip_reason.
+- SIGN-IN / CREATE-ACCOUNT page (email + password fields, common on Workday/iCIMS): fill the email field with the applicant's email (in the profile), and fill the password field with the LITERAL token "$PASSWORD" (NEVER a real password — the runner substitutes it). Use the same email+password to register or sign in. After clicking the sign-in/register button, "next":"resnapshot". If it's a brand-new signup that will require email confirmation you can't do, set "next":"login" and "needs_account_creation":true.
+- EXPIRED / UNAVAILABLE / ERROR posting (e.g. "no longer accepting applications", "position closed", 404, "job not found"): set "next":"skip" with a short "skip_reason". Do not try to fill anything.
+- AUTO-SUBMIT: when AUTO_SUBMIT is "yes" and every required field on the page is filled (or already filled from a prior step), you MUST locate the real submit control in the snapshot (a button named "Submit application" / "Submit" / "Apply" / "Send application") and return "next":"submit" with a CLICK on that button as the LAST step. Do NOT return "done" while AUTO_SUBMIT is "yes" unless a REQUIRED field genuinely can't be filled (then "flagged" it). Optional EEO / voluntary self-id are NOT a reason to stop — decline them and submit. If the submit button isn't visible yet (e.g. revealed after the last field), set "next":"resnapshot" to continue. When AUTO_SUBMIT is "no", fill everything then "next":"done".
 - Security/verification CODE field (8 boxes etc.): "next":"otp" and put the box refs in "otp_refs".
 - Interactive image CAPTCHA / government-id you cannot solve: "next":"human" with "human_reason".`;
 
@@ -145,6 +200,29 @@ async function planPage({ model, apiKey, snapshot, profile, job, autoSubmit, res
     prompt_tokens_details: { cached_tokens: u.prompt_tokens_details?.cached_tokens ?? u.prompt_cache_hit_tokens ?? 0 },
   });
   return { plan, usage };
+}
+
+/**
+ * STRICT, generic submission check — ask the LLM whether the post-submit page is a real
+ * success/confirmation (no hardcoded ATS strings). Prevents false "submitted" reports.
+ */
+async function verifySubmission({ model, apiKey, snapshot, job }) {
+  const cfg = llmConfig(model, apiKey);
+  const sys = "You verify whether a job application was actually submitted. Look at the page snapshot for an explicit success/confirmation (e.g. a thank-you/confirmation heading or 'application received/submitted' message). A visible Submit button or an unchanged form means NOT submitted. Respond ONLY with JSON.";
+  const user = `JOB: ${job?.title || ""}${job?.company ? " @ " + job.company : ""}\n\nPAGE SNAPSHOT:\n${snapshot}\n\nReturn {"submitted": true|false, "reason": "<short evidence from the page>"}`;
+  try {
+    const res = await fetch(`${cfg.base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.key}` },
+      body: JSON.stringify({ model: cfg.model, temperature: 0, response_format: { type: "json_object" },
+        messages: [{ role: "system", content: sys }, { role: "user", content: user }] }),
+    });
+    if (!res.ok) return { submitted: false, reason: `verify ${res.status}` };
+    const data = await res.json();
+    return JSON.parse(data.choices?.[0]?.message?.content || '{"submitted":false}');
+  } catch (e) {
+    return { submitted: false, reason: String(e?.message || e).slice(0, 80) };
+  }
 }
 
 // --- OTP (reuse the python fetcher) -----------------------------------------
@@ -192,6 +270,12 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
 
   const finish = (result, message) => { emitUsage(); emit({ type: "done", result, message, usage: finalUsage() }); return { result, message, usage: finalUsage() }; };
 
+  // Credentials substituted at EXECUTION time only — the real password never enters the
+  // planner prompt, the plan JSON, or the logs (the planner uses the literal token $PASSWORD).
+  const creds = { EMAIL: profile.email || "", PASSWORD: profile.defaultPassword || "", APPLICANT_PASSWORD: profile.defaultPassword || "" };
+  const subst = (v) => String(v ?? "").replace(/\$(EMAIL|PASSWORD|APPLICANT_PASSWORD)\b/g, (_, k) => creds[k] ?? "");
+  const mask = (v) => String(v ?? "").replace(/\$(PASSWORD|APPLICANT_PASSWORD)\b/g, "••••");
+
   emit({ type: "status", phase: "navigating", message: "Opening the page" });
   await pw(session, ["open", url], { timeout: 90000 });
 
@@ -227,6 +311,19 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
       history.push(`entered verification code into ${Math.min(chars.length, refs.length)} boxes`);
       continue; // re-snapshot → plan the submit
     }
+    // Expired / unavailable / error posting → skip (don't hang on it during a batch).
+    if (plan.next === "skip") {
+      return finish("skipped", plan.skip_reason || "Job posting unavailable / expired");
+    }
+    // New-account signup that needs email confirmation we can't do → pause for the human.
+    if (plan.next === "login" && plan.needs_account_creation) {
+      step("warn", "Account creation needed", "Sign-up requires email confirmation — a human must create the account, then resume.");
+      emit({ type: "paused", reason: "Create the account in the open browser (it needs email confirmation), then resume." });
+      const note = await awaitHumanResume(runId);
+      if (wasStopped(runId) || note === "__stopped__") return finish("stopped", "Stopped by user");
+      history.push("human created the account");
+      continue;
+    }
     if (plan.next === "human") {
       step("warn", "Human action needed", plan.human_reason || "Manual step required");
       emit({ type: "paused", reason: plan.human_reason || "A human must complete a step in the browser" });
@@ -241,7 +338,7 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
       return finish("stopped", "Stopped by user");
     }
     const commands = steps.map((s) => ({ s, args: stepToArgs(s, { resumePath: profile.resumePath }) }));
-    if (!(await gate("commands", { commands: commands.map((c) => `playwright-cli ${c.args.join(" ")}`), page: page + 1 }))) {
+    if (!(await gate("commands", { commands: commands.map((c) => `playwright-cli ${c.args.map(mask).join(" ")}`), page: page + 1 }))) {
       return finish("stopped", "Stopped by user");
     }
 
@@ -249,19 +346,23 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
     let revealed = false;
     for (const { s, args } of commands) {
       if (wasStopped(runId)) return finish("stopped", "Stopped by user");
-      const r = await pw(session, args);
-      step(r.ok ? "action" : "warn", "playwright", `${args.join(" ").slice(0, 120)}${r.ok ? "" : " → " + (r.err || r.out || "failed").slice(0, 80)}`);
-      history.push(`${s.action} ${s.label || s.ref}${s.value ? "=" + String(s.value).slice(0, 30) : ""}`);
+      const r = await pw(session, args.map(subst));            // real creds only at exec time
+      step(r.ok ? "action" : "warn", "playwright", `${args.map(mask).join(" ").slice(0, 120)}${r.ok ? "" : " → " + (r.err || r.out || "failed").slice(0, 80)}`);
+      history.push(`${s.action} ${s.label || s.ref}${s.value ? "=" + mask(s.value).slice(0, 30) : ""}`);
       if (s.reveals) { revealed = true; break; } // DOM mutated → refs stale → replan
     }
     await pw(session, ["run-code", "--filename=scripts/wait_stable.js"]).catch(() => {});
 
     if (revealed) continue;             // re-snapshot to see revealed options
     if (plan.next === "submit") {
-      // confirm we actually reached a confirmation page
+      // STRICT: an LLM must confirm a real success page before we report "submitted".
+      emit({ type: "status", phase: "verifying", message: "Verifying the submission" });
       const after = await snapshotPage(session, runDir, `${page}-after`);
-      const ok = /thank you for applying|application (has been )?(received|submitted)|submitted/i.test(after);
-      return finish(ok ? "submitted" : "submitted_unconfirmed", ok ? "Submitted — confirmation page reached" : "Submit clicked; confirmation not detected");
+      const v = await verifySubmission({ model, apiKey, snapshot: after, job });
+      step(v.submitted ? "success" : "warn", v.submitted ? "Submission confirmed" : "Not confirmed", String(v.reason || "").slice(0, 140));
+      return v.submitted
+        ? finish("submitted", `Submitted — confirmed: ${String(v.reason || "").slice(0, 120)}`)
+        : finish("submitted_unconfirmed", `Submit clicked but no confirmation: ${String(v.reason || "").slice(0, 120)}`);
     }
     if (plan.next === "done") return finish("review_pending", "Form filled; stopped before submit");
     // next === resnapshot → loop again
@@ -275,8 +376,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function runBatchPlan(opts) {
   const { jobs, source, agentName, emit, markApplied, runId, autoApprove } = opts;
   const session = sessionForRun(runId, agentName);
+  const applierName = opts.profile.fullName || opts.profile.accountName;
+  const resumeTempDir = path.join(os.tmpdir(), "nextoffer-runs", String(runId || "batch"));
   try {
-    emit({ type: "batch", total: jobs.length, source, agentName });
+    emit({ type: "batch", total: jobs.length, source, agentName, generateResumeByAi: !!opts.generateResumeByAi });
     let submitted = 0;
     const results = [];
     for (let i = 0; i < jobs.length; i++) {
@@ -285,13 +388,52 @@ export async function runBatchPlan(opts) {
       emit({ type: "job", index: i, total: jobs.length, jobId: job.id, title: job.title, company: job.company, url: job.url, source: job.source });
       const jobEmit = (e) => {
         if (e.type === "done") return emit({ ...e, type: "jobDone", jobIndex: i });
-        if (e.type === "paused" || e.type === "usage") return emit({ ...e, jobIndex: i });
+        if (e.type === "paused" || e.type === "usage" || e.type === "step") return emit({ ...e, jobIndex: i });
         return emit(e);
       };
+
+      let jobProfile = opts.profile;
+      if (opts.generateResumeByAi) {
+        const destDir = path.join(resumeTempDir, String(i));
+        const destFilePath = path.join(destDir, `resume-${job.id || i}.pdf`);
+        fs.mkdirSync(destDir, { recursive: true });
+        jobEmit({
+          type: "resumeMatch",
+          jobIndex: i,
+          jobTitle: job.title,
+          jobCompany: job.company,
+          bestResume: { name: "AI Generated (per job)", scorePercent: 100 },
+          resumeStack: "AI Generated",
+          aiGenerated: true,
+        });
+        jobProfile = {
+          ...opts.profile,
+          resumeStack: "AI Generated",
+          resumePath: destFilePath,
+          resumeMimeType: "application/pdf",
+          resumeFileName: path.basename(destFilePath),
+        };
+      }
+
+      // Generate the per-job résumé FIRST so the file exists before the apply's upload
+      // step (the old Promise.all raced the upload). If generation fails, fall back to the
+      // applicant's uploaded résumé instead of breaking the whole application.
+      if (opts.generateResumeByAi) {
+        try {
+          const { ensureAgentJobResumeFile } = await import("./agent-resume-gen.mjs");
+          await ensureAgentJobResumeFile({ applierName, job, destFilePath: jobProfile.resumePath, emit: jobEmit, jobIndex: i, model: opts.model, apiKey: opts.apiKey });
+        } catch (e) {
+          jobEmit({ type: "step", level: "warn", jobIndex: i, title: "AI résumé failed — using uploaded résumé", detail: String(e?.message || e).slice(0, 160) });
+          jobProfile = opts.profile; // fall back to the applicant's existing résumé
+        }
+      }
+
       let r;
       try {
-        r = await runApplicationPlan({ url: job.url, agentName, emit: jobEmit, autoSubmit: opts.autoSubmit, autoApprove,
-          profile: opts.profile, model: opts.model, apiKey: opts.apiKey, job, runId });
+        r = await runApplicationPlan({
+          url: job.url, agentName, emit: jobEmit, autoSubmit: opts.autoSubmit, autoApprove,
+          profile: jobProfile, model: opts.model, apiKey: opts.apiKey, job, runId,
+        });
       } catch (e) { jobEmit({ type: "done", result: "error", message: String(e?.message || e).slice(0, 200) }); r = { result: "error" }; }
       results.push({ jobId: job.id, title: job.title, result: r.result });
       if (r.result === "submitted") { submitted++; if (job.id && markApplied) await markApplied(job.id).catch(() => {}); }

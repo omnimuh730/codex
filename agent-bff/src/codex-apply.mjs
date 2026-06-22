@@ -26,6 +26,7 @@ import {
   listUserResumesWithContent,
   materializeResume,
 } from "../../core-backend/src/user-resumes.mjs";
+import { ensureAgentJobResumeFile } from "./agent-resume-gen.mjs";
 import { PATHS } from "./config.mjs";
 import { spawn } from "node:child_process";
 import { awaitHumanResume, runSignal, wasManuallyPaused, wasStopped } from "./human-handoff.mjs";
@@ -88,7 +89,7 @@ export function parseResult(finalMessage) {
 }
 
 /** Compose the job-application task prompt fed to codex via stdin. */
-export function buildApplyPrompt({ url, job, profile, resumePath, autoSubmit, session }) {
+export function buildApplyPrompt({ url, job, profile, resumePath, autoSubmit, session, resumeGenerating }) {
   // OTP fetcher invocation with this application's context so the LLM inside the
   // script can pick the RIGHT email (among many) and extract the code from it.
   const sh = (v) => String(v || "").replace(/"/g, "'").slice(0, 120);
@@ -111,6 +112,7 @@ APPLICANT PROFILE (JSON) — the ONLY source of truth. Ignore config/profile.yam
 ${JSON.stringify(profileForPrompt(profile), null, 2)}
 
 RESUME FILE (for any upload / setInputFiles): ${resumePath || "(none)"}
+${resumeGenerating ? "\nNOTE: The resume file above is being generated in parallel while you navigate the form. If upload fails because the file is not found yet, wait a few seconds and retry the upload — it should appear shortly.\n" : ""}
 
 ${submitLine}
 
@@ -171,6 +173,7 @@ export async function runApplicationCodex({
   images,
   signal,
   runId,
+  resumeGenerating = false,
 }) {
   const step = (level, title, detail) => emit({ type: "step", level, title, detail });
   const deepseek = isDeepSeekModel(model);
@@ -267,7 +270,7 @@ export async function runApplicationCodex({
       approvalPolicy: "never",
       prompt: resuming
         ? buildResumePrompt({ note: resumeNote, autoSubmit, session })
-        : buildApplyPrompt({ url, job, profile, resumePath: profile.resumePath, autoSubmit, session }),
+        : buildApplyPrompt({ url, job, profile, resumePath: profile.resumePath, autoSubmit, session, resumeGenerating }),
       images: resuming ? undefined : images,
       threadId: resuming ? threadId : undefined,
       onEvent,
@@ -358,15 +361,18 @@ export async function runBatchCodex(opts) {
 async function runBatchCodexInner(opts, { session }) {
   const { jobs, source, agentName, emit, markApplied, controller = null, codexPath, proxyUrl } = opts;
   const check = () => controller?.checkpoint?.();
-  emit({ type: "batch", total: jobs.length, source, agentName });
+  emit({ type: "batch", total: jobs.length, source, agentName, generateResumeByAi: !!opts.generateResumeByAi });
   let submitted = 0;
   let skipped = 0;
   const results = [];
 
-  const uploadedResumes = await listUserResumesWithContent(opts.profile.accountId, {
-    ownerName: opts.profile.fullName || opts.profile.accountName,
-  });
+  const uploadedResumes = opts.generateResumeByAi
+    ? []
+    : await listUserResumesWithContent(opts.profile.accountId, {
+        ownerName: opts.profile.fullName || opts.profile.accountName,
+      });
   const resumeTempDir = path.join(os.tmpdir(), "nextoffer-runs", String(opts.runId || "batch"));
+  const applierName = opts.profile.fullName || opts.profile.accountName;
 
   for (let i = 0; i < jobs.length; i++) {
     try {
@@ -379,7 +385,113 @@ async function runBatchCodexInner(opts, { session }) {
     const job = jobs[i];
     emit({ type: "job", index: i, total: jobs.length, jobId: job.id, title: job.title, company: job.company, url: job.url, source: job.source });
 
+    const jobEmit = (e) => {
+      if (e.type === "done") return emit({ ...e, type: "jobDone", jobIndex: i });
+      if (e.type === "paused" || e.type === "usage" || e.type === "step") return emit({ ...e, jobIndex: i });
+      return emit(e);
+    };
+
     let jobProfile = opts.profile;
+
+    if (opts.generateResumeByAi) {
+      const destDir = path.join(resumeTempDir, String(i));
+      const destFilePath = path.join(destDir, `resume-${job.id || i}.txt`);
+      fs.mkdirSync(destDir, { recursive: true });
+
+      const jdText = buildJdSkillProfileText(job);
+      emit({
+        type: "resumeMatch",
+        jobIndex: i,
+        jobTitle: job.title,
+        jobCompany: job.company,
+        jobDescription: (job.description || "").slice(0, 3000),
+        jobSkills: job.skills || [],
+        skillProfile: formatJdSkillProfileDisplay(parseSkillProfile(jdText)) || jdText || null,
+        bestResume: { name: "AI Generated (per job)", scorePercent: 100 },
+        topResumes: [{ name: "AI Generated (per job)", scorePercent: 100 }],
+        resumeStack: "AI Generated",
+        aiGenerated: true,
+      });
+
+      jobProfile = {
+        ...opts.profile,
+        resumeStack: "AI Generated",
+        resumePath: destFilePath,
+        resumeMimeType: "text/plain",
+        resumeFileName: path.basename(destFilePath),
+      };
+
+      const resumeGenPromise = ensureAgentJobResumeFile({
+        applierName,
+        job,
+        destFilePath,
+        emit: jobEmit,
+        jobIndex: i,
+      }).then((resumeResult) => {
+        jobProfile = {
+          ...jobProfile,
+          resumeStack: resumeResult.techStack || "AI Generated",
+          resumeId: resumeResult.resumeId,
+        };
+        emit({
+          type: "resumeMatch",
+          jobIndex: i,
+          jobTitle: job.title,
+          jobCompany: job.company,
+          bestResume: { name: resumeResult.techStack || "AI Generated", scorePercent: 100 },
+          topResumes: [{ name: resumeResult.techStack || "AI Generated", scorePercent: 100 }],
+          resumeStack: resumeResult.techStack || "AI Generated",
+          aiGenerated: true,
+          reused: resumeResult.reused,
+        });
+        return resumeResult;
+      });
+
+      let r;
+      try {
+        const [applyResult] = await Promise.all([
+          runApplicationCodex({
+            url: job.url,
+            agentName,
+            emit: jobEmit,
+            autoSubmit: opts.autoSubmit,
+            profile: jobProfile,
+            model: opts.model,
+            apiKey: opts.apiKey,
+            proxyUrl,
+            codexPath,
+            job,
+            runId: opts.runId,
+            signal: controller?.signal,
+            resumeGenerating: true,
+          }),
+          resumeGenPromise,
+        ]);
+        r = applyResult;
+      } catch (e) {
+        jobEmit({ type: "done", result: "error", message: String(e?.message || e).slice(0, 200) });
+        r = { result: "error" };
+      }
+
+      results.push({ jobId: job.id, title: job.title, result: r.result });
+      appendLog({ url: job.url, company: job.company, role: job.title, status: r.result, profile: opts.profile.fullName, model: opts.model, usage: r.usage });
+
+      if (isSubmissionSuccess(r.result) || r.result === "skipped") {
+        if (isSubmissionSuccess(r.result)) submitted++;
+        else skipped++;
+        if (job.id && markApplied) {
+          try {
+            await markApplied(job.id);
+            emit({ type: "step", level: "success", title: isSubmissionSuccess(r.result) ? "Marked applied in MongoDB" : "Skipped — marked handled", detail: job.title });
+          } catch (e) {
+            emit({ type: "step", level: "warn", title: "Could not update MongoDB", detail: String(e?.message || e).slice(0, 80) });
+          }
+        }
+      }
+      if (i < jobs.length - 1) await sleep(1500);
+      continue;
+    }
+
     if (uploadedResumes.length) {
       const jdText = buildJdSkillProfileText(job);
       const jdScores = parseSkillProfile(jdText);
@@ -433,14 +545,6 @@ async function runBatchCodexInner(opts, { session }) {
         resumeStack: chosenDoc?.techStack || "",
       });
     }
-
-    // Keep the SSE stream open across jobs: per-job "done" → "jobDone". Tag the
-    // "paused" handoff event with the job index so the dashboard knows which job.
-    const jobEmit = (e) => {
-      if (e.type === "done") return emit({ ...e, type: "jobDone", jobIndex: i });
-      if (e.type === "paused" || e.type === "usage") return emit({ ...e, jobIndex: i });
-      return emit(e);
-    };
 
     let r;
     try {

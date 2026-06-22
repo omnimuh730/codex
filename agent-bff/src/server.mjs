@@ -16,6 +16,7 @@ import { sweepOrphanBrowsers } from "./browser-sweep.mjs";
 const isSubmissionSuccess = (result) => result === "submitted";
 import { listProfiles, getProfileById, getProfileResumes } from "../../core-backend/src/resumes.mjs";
 import { listOpenAiModels, DEEPSEEK_MODELS, isDeepSeekModel } from "../../core-backend/src/models.mjs";
+import { emptyUsage, mergeUsage, formatUsd } from "../../core-backend/src/pricing.mjs";
 import { listPostedJobs, listAppliedJobs, postedSourceCounts, markJobApplied, dashboardStats } from "../../core-backend/src/jobs.mjs";
 import { countByStatus, listActivityEntries, listFailedAttempts } from "../../core-backend/src/applications-log.mjs";
 import {
@@ -81,17 +82,18 @@ function persistRunUpdates(run, e) {
     }
   }
   if (e.type === "usage" && e.costUsd != null) {
-    updateRun(run.id, {
-      usage: {
-        model: e.model,
-        inputTokens: e.inputTokens,
-        cachedTokens: e.cachedTokens,
-        outputTokens: e.outputTokens,
-        totalTokens: e.totalTokens,
-        costUsd: e.costUsd,
-        costLabel: e.costLabel,
-      },
-    }).catch(err => logPersistErr("updateRun usage", err));
+    const delta = {
+      model: e.model,
+      inputTokens: e.inputTokens ?? 0,
+      cachedTokens: e.cachedTokens ?? 0,
+      outputTokens: e.outputTokens ?? 0,
+      totalTokens: e.totalTokens ?? 0,
+      costUsd: e.costUsd ?? 0,
+      priced: e.priced !== false,
+    };
+    run.usage = mergeUsage(run.usage || emptyUsage(), delta);
+    const usage = { ...run.usage, costLabel: formatUsd(run.usage.costUsd) };
+    updateRun(run.id, { usage }).catch(err => logPersistErr("updateRun usage", err));
   }
   if (e.type === "paused") {
     updateRun(run.id, { status: "paused" }).catch(err => logPersistErr("updateRun paused", err));
@@ -449,6 +451,7 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     const name = (body.name || "").trim() || "Agent";
     const autoSubmit = body.autoSubmit ?? CONFIG.autoSubmit;
+    const generateResumeByAi = body.generateResumeByAi === true;
     const mode = (body.mode || "turbo").trim();            // "turbo" (codex) | "plan"
     const autoApprove = body.autoApprove ?? true;          // plan mode: auto-approve gates
     const profileId = (body.profileId || "").trim();
@@ -469,9 +472,9 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 500, { error: `Failed to load profile: ${err?.message || err}` });
     }
     if (!profile) return sendJSON(res, 404, { error: "Profile not found." });
-    if (!profile.resumeCount && !profile.resumePath) {
+    if (!generateResumeByAi && !profile.resumeCount && !profile.resumePath) {
       return sendJSON(res, 400, {
-        error: `No resumes in library for ${profile.fullName || "this profile"}. Upload at least one resume — the agent picks the best match per job using techStack and skillProfile.`,
+        error: `No resumes in library for ${profile.fullName || "this profile"}. Upload at least one resume — or enable "Generate resume by AI" to tailor a resume per job.`,
       });
     }
 
@@ -540,6 +543,7 @@ const server = http.createServer(async (req, res) => {
         // playwright-cli commands (no LLM per command). ~10–20× cheaper than codex.
         await runBatchPlan({
           jobs, source: source || "Direct", agentName: name, autoSubmit, autoApprove,
+          generateResumeByAi,
           profile, model, apiKey, applierId: profile.accountId, runId: run.id,
           markApplied: (jobId) => markJobApplied({ jobId, applierId: profile.accountId }),
           emit: (e) => emitTo(run, e),
@@ -548,7 +552,8 @@ const server = http.createServer(async (req, res) => {
       }
       const proxyUrl = isDeepSeekModel(model) ? await ensureDeepSeekProxy() : undefined;
       await runBatchCodex({
-        jobs, source: source || "Direct", agentName: name, autoSubmit, profile, model, apiKey,
+        jobs, source: source || "Direct", agentName: name, autoSubmit, generateResumeByAi,
+        profile, model, apiKey,
         applierId: profile.accountId,
         runId: run.id,
         codexPath: CONFIG.codexBin,

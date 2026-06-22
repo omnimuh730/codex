@@ -51,6 +51,7 @@ export const CONFIG = {
   deepseekProxyPort: Number(env("DEEPSEEK_PROXY_PORT", "8788")),
   pwSession: env("PW_SESSION", "athens-agent"),
   autoSubmit: (env("AUTO_SUBMIT") || "true") !== "false",
+  athensServerUrl: (env("ATHENS_SERVER_URL", "http://127.0.0.1:7979")).replace(/\/$/, ""),
 };
 
 export function maskKey(k) {
