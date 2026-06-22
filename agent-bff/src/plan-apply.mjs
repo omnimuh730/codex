@@ -86,6 +86,26 @@ async function domFallbackSnapshot(session) {
   return `DOM FALLBACK — the accessibility tree was empty, so target elements by these CSS-selector refs (use them exactly in "ref"):\n${lines.join("\n")}`;
 }
 
+// Robust résumé upload: set the file directly on the <input type=file> (works for hidden /
+// custom drag-drop zones where `playwright-cli upload`'s native chooser silently no-ops, which
+// left forms stuck on "Missing required field: Resume"). Generic — not vendor-specific.
+async function uploadResumeFile(session, file) {
+  if (!file) return { ok: false, info: "no résumé file" };
+  const js = `async page => {
+    const p = ${JSON.stringify(file)};
+    let inputs = page.locator('input[type=file]');
+    let n = await inputs.count();
+    if (!n) { try { await page.getByText(/upload|attach|résumé|resume|\\bcv\\b|drag.*drop/i).first().click({ timeout: 2500 }); } catch {} inputs = page.locator('input[type=file]'); n = await inputs.count(); }
+    if (!n) return { ok: false, error: 'no file input' };
+    try { await inputs.first().setInputFiles(p); return { ok: true, inputs: n }; }
+    catch (e) { return { ok: false, error: String(e.message).slice(0, 80) }; }
+  }`;
+  const r = await pw(session, ["run-code", js, "--raw"], { timeout: 30000 });
+  let info = {};
+  try { info = JSON.parse((r.out || "").match(/\{[\s\S]*\}/)?.[0] || "{}"); } catch {}
+  return { ok: !!info.ok, info };
+}
+
 async function snapshotPage(session, runDir, n) {
   const file = path.join(runDir, `${String(n).padStart(2, "0")}-snap.yml`);
   let tree = "";
@@ -160,6 +180,7 @@ const PLAN_RULES = `Rules:
 - SIGN-IN / CREATE-ACCOUNT page (email + password fields, common on Workday/iCIMS): fill the email field with the applicant's email (in the profile), and fill the password field with the LITERAL token "$PASSWORD" (NEVER a real password — the runner substitutes it). Use the same email+password to register or sign in. After clicking the sign-in/register button, "next":"resnapshot". If it's a brand-new signup that will require email confirmation you can't do, set "next":"login" and "needs_account_creation":true.
 - EXPIRED / UNAVAILABLE / ERROR posting (e.g. "no longer accepting applications", "position closed", 404, "job not found"): set "next":"skip" with a short "skip_reason". Do not try to fill anything.
 - AUTO-SUBMIT: when AUTO_SUBMIT is "yes" and every required field on the page is filled (or already filled from a prior step), you MUST locate the real submit control in the snapshot (a button named "Submit application" / "Submit" / "Apply" / "Send application") and return "next":"submit" with a CLICK on that button as the LAST step. Do NOT return "done" while AUTO_SUBMIT is "yes" unless a REQUIRED field genuinely can't be filled (then "flagged" it). Optional EEO / voluntary self-id are NOT a reason to stop — decline them and submit. If the submit button isn't visible yet (e.g. revealed after the last field), set "next":"resnapshot" to continue. When AUTO_SUBMIT is "no", fill everything then "next":"done".
+- FIX VALIDATION ERRORS BEFORE RE-SUBMIT: if the snapshot shows a validation/error banner (e.g. "Your form needs corrections", "Missing entry for required field: X", a field marked required/invalid) OR the Submit button is still present after a submit attempt, the form did NOT submit. Find the offending field and fix it — a custom combobox (Current location, Country) often needs the click→type→click-option flow, not a plain fill; a required upload needs the résumé attached. Fix it, then "next":"submit" again. Do NOT report done.
 - Security/verification CODE field (8 boxes etc.): "next":"otp" and put the box refs in "otp_refs".
 - Interactive image CAPTCHA / government-id you cannot solve: "next":"human" with "human_reason".`;
 
@@ -177,18 +198,32 @@ async function planPage({ model, apiKey, snapshot, profile, job, autoSubmit, res
     PLAN_SCHEMA,
   ].filter(Boolean).join("\n\n");
 
-  const res = await fetch(`${cfg.base}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.key}` },
-    body: JSON.stringify({
-      model: cfg.model,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-    }),
-  });
-  if (!res.ok) throw new Error(`planner ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);
-  const data = await res.json();
+  // DeepSeek occasionally returns a transient network error / empty body. Retry a few times
+  // with backoff so one flaky call doesn't error the whole job.
+  let data = null;
+  let lastErr = "";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 1500 * attempt));
+    try {
+      const res = await fetch(`${cfg.base}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.key}` },
+        body: JSON.stringify({
+          model: cfg.model,
+          temperature: 0,
+          response_format: { type: "json_object" },
+          messages: [{ role: "system", content: sys }, { role: "user", content: user }],
+        }),
+      });
+      if (!res.ok) { lastErr = `planner ${res.status}: ${(await res.text().catch(() => "")).slice(0, 160)}`; continue; }
+      const json = await res.json();
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) { lastErr = "empty planner response"; continue; }
+      data = json;
+      break;
+    } catch (e) { lastErr = String(e?.message || e).slice(0, 120); }
+  }
+  if (!data) throw new Error(lastErr || "planner failed");
   const plan = JSON.parse(data.choices?.[0]?.message?.content || "{}");
   const u = data.usage || {};
   const usage = costFromUsage(model, {
@@ -279,6 +314,7 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
   emit({ type: "status", phase: "navigating", message: "Opening the page" });
   await pw(session, ["open", url], { timeout: 90000 });
 
+  let submitAttempts = 0;
   for (let page = 0; page < MAX_PAGES; page++) {
     if (wasStopped(runId)) return finish("stopped", "Stopped by user");
 
@@ -346,8 +382,16 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
     let revealed = false;
     for (const { s, args } of commands) {
       if (wasStopped(runId)) return finish("stopped", "Stopped by user");
-      const r = await pw(session, args.map(subst));            // real creds only at exec time
-      step(r.ok ? "action" : "warn", "playwright", `${args.map(mask).join(" ").slice(0, 120)}${r.ok ? "" : " → " + (r.err || r.out || "failed").slice(0, 80)}`);
+      let r;
+      if (s.action === "upload") {
+        // Use setInputFiles, not the native chooser, so the résumé actually attaches.
+        const file = s.file === "resume" ? profile.resumePath : (s.file || profile.resumePath);
+        r = await uploadResumeFile(session, file);
+        step(r.ok ? "success" : "warn", "upload résumé", r.ok ? `attached ${path.basename(file)}` : `failed: ${JSON.stringify(r.info).slice(0, 80)}`);
+      } else {
+        r = await pw(session, args.map(subst));            // real creds only at exec time
+        step(r.ok ? "action" : "warn", "playwright", `${args.map(mask).join(" ").slice(0, 120)}${r.ok ? "" : " → " + (r.err || r.out || "failed").slice(0, 80)}`);
+      }
       history.push(`${s.action} ${s.label || s.ref}${s.value ? "=" + mask(s.value).slice(0, 30) : ""}`);
       if (s.reveals) { revealed = true; break; } // DOM mutated → refs stale → replan
     }
@@ -359,10 +403,18 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
       emit({ type: "status", phase: "verifying", message: "Verifying the submission" });
       const after = await snapshotPage(session, runDir, `${page}-after`);
       const v = await verifySubmission({ model, apiKey, snapshot: after, job });
-      step(v.submitted ? "success" : "warn", v.submitted ? "Submission confirmed" : "Not confirmed", String(v.reason || "").slice(0, 140));
-      return v.submitted
-        ? finish("submitted", `Submitted — confirmed: ${String(v.reason || "").slice(0, 120)}`)
-        : finish("submitted_unconfirmed", `Submit clicked but no confirmation: ${String(v.reason || "").slice(0, 120)}`);
+      if (v.submitted) {
+        step("success", "Submission confirmed", String(v.reason || "").slice(0, 140));
+        return finish("submitted", `Submitted — confirmed: ${String(v.reason || "").slice(0, 120)}`);
+      }
+      // Submit didn't confirm — almost always a validation error (a required field, a custom
+      // combobox not committed). Don't give up: re-plan so the planner sees the error and the
+      // still-visible Submit button, fixes the field, and submits again.
+      submitAttempts++;
+      step("warn", `Submit not confirmed (attempt ${submitAttempts})`, String(v.reason || "").slice(0, 130));
+      if (submitAttempts >= 3) return finish("submitted_unconfirmed", `Submit clicked but no confirmation after ${submitAttempts} tries: ${String(v.reason || "").slice(0, 100)}`);
+      history.push(`SUBMIT attempt ${submitAttempts} did NOT go through — likely a required field is missing/invalid; check the form for errors and fix before submitting again`);
+      continue;
     }
     if (plan.next === "done") return finish("review_pending", "Form filled; stopped before submit");
     // next === resnapshot → loop again
