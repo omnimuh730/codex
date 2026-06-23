@@ -12,7 +12,7 @@ import { runClaudeAgent } from "./claude-runner.mjs";
 import { usageToAgentForce, parseResult, runBatchCodex } from "./codex-apply.mjs";
 
 /** Compose the (deliberately short) task prompt for Claude Code. */
-export function buildClaudeApplyPrompt({ url, job, profile, resumePath }) {
+export function buildClaudeApplyPrompt({ url, job, profile, resumePath, resumeGenerating }) {
   const lines = [
     "Apply to this job for me using the Playwright browser tools.",
     "",
@@ -23,10 +23,14 @@ export function buildClaudeApplyPrompt({ url, job, profile, resumePath }) {
     JSON.stringify(profile, null, 2),
     "",
     `Resume file to upload: ${resumePath || "(none)"}`,
+    "Upload EXACTLY that file path for the resume/CV field — do NOT substitute, rename, or pick any other file.",
+    resumeGenerating
+      ? "That resume is being generated right now in parallel, so it may not exist yet when you reach the upload step. If the upload says the file is missing, wait ~5s and retry the SAME path a few times until it appears — never fall back to a different file."
+      : "",
     "",
     "Open the URL, fill the application from the profile, upload the resume, and submit.",
     "When done, end with one line: RESULT: <submitted|review_pending|skipped|error> — <short reason>",
-  ];
+  ].filter(Boolean);
   return lines.join("\n");
 }
 
@@ -123,7 +127,7 @@ export async function runApplicationClaude({
     model,
     apiKey,
     env: gateEnv,
-    prompt: buildClaudeApplyPrompt({ url, job, profile, resumePath: profile.resumePath }),
+    prompt: buildClaudeApplyPrompt({ url, job, profile, resumePath: profile.resumePath, resumeGenerating }),
     onEvent,
     signal,
   });

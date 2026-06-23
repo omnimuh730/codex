@@ -454,6 +454,9 @@ async function runBatchCodexInner(opts, { session }) {
           resumeStack: resumeResult.techStack || "AI Generated",
           aiGenerated: true,
           reused: resumeResult.reused,
+          // Lets the Agent history render a "View résumé" link to the exact PDF.
+          generationId: resumeResult.generationId || null,
+          resumeId: resumeResult.resumeId || null,
         });
         return resumeResult;
       });
@@ -528,12 +531,28 @@ async function runBatchCodexInner(opts, { session }) {
 
       const mat = await materializeResume(chosenDoc, path.join(resumeTempDir, String(i)));
       if (mat) {
+        // The ATS shows the uploaded file's name — make it the applicant's name
+        // (e.g. "Eli Taylor.pdf"), not the library file's name ("resume_apply.pdf").
+        // Keep the original extension so the file type is unchanged.
+        const ext = path.extname(mat.fileName) || ".pdf";
+        const safeBase = String(applierName || "Resume").replace(/[^\w.\-()+ ]+/g, "_").trim() || "Resume";
+        let resumePath = mat.filePath;
+        let resumeFileName = mat.fileName;
+        const desired = `${safeBase}${ext}`;
+        if (desired !== mat.fileName) {
+          const renamed = path.join(path.dirname(mat.filePath), desired);
+          try {
+            fs.renameSync(mat.filePath, renamed);
+            resumePath = renamed;
+            resumeFileName = desired;
+          } catch { /* fall back to original name if rename fails */ }
+        }
         jobProfile = {
           ...opts.profile,
           resumeStack: chosenDoc.techStack || "",
-          resumePath: mat.filePath,
+          resumePath,
           resumeMimeType: mat.mimeType,
-          resumeFileName: mat.fileName,
+          resumeFileName,
           resumeId: String(chosenDoc._id),
         };
       }

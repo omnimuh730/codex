@@ -69,6 +69,10 @@ function sanitizePayload(type, event) {
       bestResume: copy.bestResume || null,
       topResumes: copy.topResumes || null,
       resumeStack: copy.resumeStack || null,
+      // Reference to the generated résumé so history can link to its PDF.
+      generationId: copy.generationId || null,
+      resumeId: copy.resumeId || null,
+      aiGenerated: copy.aiGenerated || false,
     };
   }
   return copy;

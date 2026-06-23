@@ -79,6 +79,9 @@ function persistRunUpdates(run, e) {
         matchPercent: e.bestResume?.scorePercent ?? null,
         skillProfile: (e.skillProfile || "").slice(0, 500) || null,
         jobSkills: e.jobSkills || [],
+        // Persist the generated-résumé reference so a finished run can show it.
+        ...(e.generationId ? { resumeGenerationId: e.generationId } : {}),
+        ...(e.resumeId ? { resumeId: e.resumeId } : {}),
       }).catch(err => logPersistErr("updateRunJob resumeMatch", err));
     }
   }
