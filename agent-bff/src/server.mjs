@@ -18,7 +18,7 @@ const isSubmissionSuccess = (result) => result === "submitted";
 import { listProfiles, getProfileById, getProfileResumes } from "../../core-backend/src/resumes.mjs";
 import { listOpenAiModels, DEEPSEEK_MODELS, isDeepSeekModel } from "../../core-backend/src/models.mjs";
 import { emptyUsage, mergeUsage, formatUsd } from "../../core-backend/src/pricing.mjs";
-import { listPostedJobs, listAppliedJobs, postedSourceCounts, markJobApplied, dashboardStats } from "../../core-backend/src/jobs.mjs";
+import { listPostedJobs, listAppliedJobs, listJobsByIds, postedSourceCounts, markJobApplied, dashboardStats } from "../../core-backend/src/jobs.mjs";
 import { countByStatus, listActivityEntries, listFailedAttempts } from "../../core-backend/src/applications-log.mjs";
 import {
   generateRunId,
@@ -458,7 +458,8 @@ const server = http.createServer(async (req, res) => {
     const generateResumeByAi = body.generateResumeByAi === true;
     const mode = (body.mode || "turbo").trim();            // "turbo" (codex) | "plan"
     const provider = (body.provider || "codex").trim();    // "codex" | "claude-code"
-    const claudeEngine = (body.claudeEngine || "cli").trim() === "mcp" ? "mcp" : "cli"; // claude-code browser driver
+    const claudeEngineRaw = (body.claudeEngine || "cli").trim();                        // claude-code browser driver
+    const claudeEngine = ["mcp", "plan"].includes(claudeEngineRaw) ? claudeEngineRaw : "cli"; // "cli" | "mcp" | "plan"
     const autoApprove = body.autoApprove ?? true;          // plan mode: auto-approve gates
     const profileId = (body.profileId || "").trim();
     const model = (body.model || "").trim() || CONFIG.openaiModel;
@@ -467,9 +468,11 @@ const server = http.createServer(async (req, res) => {
     const startIndex = Math.max(0, parseInt(body.startIndex ?? 0, 10) || 0);
     const endRaw = parseInt(body.endIndex ?? startIndex + 1, 10);
     const endIndex = Number.isFinite(endRaw) ? Math.max(startIndex + 1, endRaw) : startIndex + 1;
+    // Explicit "worker queue" of job ids chosen in the transfer list (preferred).
+    const jobIds = Array.isArray(body.jobIds) ? body.jobIds.map(String).filter(Boolean) : [];
 
     if (!profileId) return sendJSON(res, 400, { error: "Select an applicant profile." });
-    if (!source && !/^https?:\/\//i.test(directUrl)) return sendJSON(res, 400, { error: "Select a job source (or pass a direct job URL)." });
+    if (!jobIds.length && !source && !/^https?:\/\//i.test(directUrl)) return sendJSON(res, 400, { error: "Add at least one job to the worker queue (or pass a direct job URL)." });
 
     let profile;
     try {
@@ -485,7 +488,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     let jobs;
-    if (source) {
+    if (jobIds.length) {
+      // Apply exactly the jobs the user moved into the worker queue, in their order.
+      try {
+        jobs = await listJobsByIds({ ids: jobIds, applierId: profile.accountId, includeContent: true });
+      } catch (err) {
+        return sendJSON(res, 500, { error: `Failed to load selected jobs: ${err?.message || err}` });
+      }
+      if (!jobs.length) return sendJSON(res, 400, { error: "None of the selected jobs are still available (already applied or removed)." });
+    } else if (source) {
       try {
         jobs = await listPostedJobs({ source, applierId: profile.accountId, skip: startIndex, limit: endIndex - startIndex, includeContent: true });
       } catch (err) {
@@ -545,6 +556,19 @@ const server = http.createServer(async (req, res) => {
     };
     (async () => {
       if (provider === "claude-code") {
+        // "Plan & Execute" driver → the deterministic plan→execute→verify→replan
+        // loop (1 LLM call/page on DeepSeek + playwright-cli, no conversational
+        // agent). Runs unattended (autoApprove) — same loop the codex Plan mode uses.
+        if (claudeEngine === "plan") {
+          await runBatchPlan({
+            jobs, source: source || "Direct", agentName: name, autoSubmit, autoApprove: true,
+            generateResumeByAi, profile, model, apiKey,
+            applierId: profile.accountId, runId: run.id,
+            markApplied: (jobId) => markJobApplied({ jobId, applierId: profile.accountId }),
+            emit: (e) => emitTo(run, e),
+          });
+          return;
+        }
         // Claude Code drives the application end-to-end via the Playwright MCP +
         // CLI in the claude-code workspace. DeepSeek models use DeepSeek's
         // Anthropic-compatible endpoint directly (no Responses proxy needed).

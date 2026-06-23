@@ -146,6 +146,23 @@ export async function listPostedJobs({ source, applierId, skip = 0, limit = 50, 
   return docs.map(d => toJobSummary(d, { includeContent, applierOid })).filter(j => /^https?:\/\//i.test(j.url));
 }
 
+// Fetch specific jobs by id (the deploy "worker queue"), preserving the given order.
+export async function listJobsByIds({ ids, applierId, includeContent = false }) {
+  const db = await getDb();
+  const applierOid = toOid(applierId);
+  const oids = (Array.isArray(ids) ? ids : []).map(toOid).filter(Boolean);
+  if (!oids.length) return [];
+  const docs = await jobsCol(db)
+    .find({ _id: { $in: oids } }, { projection: includeContent ? {} : { description: 0 } })
+    .toArray();
+  const byId = new Map(docs.map((d) => [String(d._id), d]));
+  return oids
+    .map((o) => byId.get(String(o)))
+    .filter(Boolean)
+    .map((d) => toJobSummary(d, { includeContent, applierOid }))
+    .filter((j) => /^https?:\/\//i.test(j.url));
+}
+
 export async function listAppliedJobs({ source, applierId, skip = 0, limit = 50, includeContent = false }) {
   const db = await getDb();
   const applierOid = toOid(applierId);

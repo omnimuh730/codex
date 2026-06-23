@@ -178,7 +178,7 @@ const PLAN_RULES = `Rules:
 - START APPLICATION / APPLY MENU: if this is a job DESCRIPTION page (not the form yet) with an "Apply" / "Apply Now" / "Start Your Application" button, click it ONCE → "next":"resnapshot". Clicking Apply often reveals an application-method choice (e.g. "Autofill with Resume", "Apply Manually", "Use My Last Application") or a sign-in. ALWAYS PREFER "Autofill with Resume" / "Apply with Resume" / "Use a résumé" when offered (common on Workday): select it, then upload the résumé (action "upload", file "resume") so the form auto-populates, then review/fill anything missing. Only "Apply Manually" if no autofill/résumé option exists.
 - ANTI-LOOP (critical): read "ALREADY DONE" — NEVER repeat the same click you just made. If you clicked a button and the page still looks the same, that click already opened a menu/section, a sign-in, or a new view — act on the NEW thing (choose the Autofill/Apply-method option, sign in, scroll, etc.), do NOT click the same button again. If you have clicked the same control ~2 times with no progress, treat the posting as not reachable: "next":"skip" with skip_reason.
 - SIGN-IN / CREATE-ACCOUNT page (email + password fields, common on Workday/iCIMS): fill the email field with the applicant's email (in the profile), and fill the password field with the LITERAL token "$PASSWORD" (NEVER a real password — the runner substitutes it). Use the same email+password to register or sign in. After clicking the sign-in/register button, "next":"resnapshot". If it's a brand-new signup that will require email confirmation you can't do, set "next":"login" and "needs_account_creation":true.
-- EXPIRED / UNAVAILABLE / ERROR posting (e.g. "no longer accepting applications", "position closed", 404, "job not found"): set "next":"skip" with a short "skip_reason". Do not try to fill anything.
+- EXPIRED / UNAVAILABLE / ERROR / WRONG PAGE: set "next":"skip" with a short "skip_reason" and fill nothing — when the posting is gone ("no longer accepting applications", "position closed", 404, "job not found") OR the page is NOT this job's application and offers no path to it (a generic careers/job-listing page, a marketing/landing page, the wrong page). BUT a job-description page that HAS an Apply / Apply Now / Start-application button is NOT this case — click Apply and continue (see the START APPLICATION rule). Skipped jobs are marked handled and won't be retried.
 - AUTO-SUBMIT: when AUTO_SUBMIT is "yes" and every required field on the page is filled (or already filled from a prior step), you MUST locate the real submit control in the snapshot (a button named "Submit application" / "Submit" / "Apply" / "Send application") and return "next":"submit" with a CLICK on that button as the LAST step. Do NOT return "done" while AUTO_SUBMIT is "yes" unless a REQUIRED field genuinely can't be filled (then "flagged" it). Optional EEO / voluntary self-id are NOT a reason to stop — decline them and submit. If the submit button isn't visible yet (e.g. revealed after the last field), set "next":"resnapshot" to continue. When AUTO_SUBMIT is "no", fill everything then "next":"done".
 - FIX VALIDATION ERRORS BEFORE RE-SUBMIT: if the snapshot shows a validation/error banner (e.g. "Your form needs corrections", "Missing entry for required field: X", a field marked required/invalid) OR the Submit button is still present after a submit attempt, the form did NOT submit. Find the offending field and fix it — a custom combobox (Current location, Country) often needs the click→type→click-option flow, not a plain fill; a required upload needs the résumé attached. Fix it, then "next":"submit" again. Do NOT report done.
 - Security/verification CODE field (8 boxes etc.): "next":"otp" and put the box refs in "otp_refs".
@@ -291,7 +291,13 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
   try { fs.mkdirSync(runDir, { recursive: true }); } catch {}
   let total = emptyUsage();
   const finalUsage = () => ({ ...total, costLabel: formatUsd(total.costUsd) });
-  const emitUsage = () => emit({ type: "usage", model, ...finalUsage() });
+  // Emit each page's usage as a DELTA — the dashboard SUMS usage events, so emitting
+  // the running cumulative here would double-count. `total` is kept for the done event.
+  const emitUsageDelta = (u) => emit({
+    type: "usage", model,
+    inputTokens: u.inputTokens, cachedTokens: u.cachedTokens, outputTokens: u.outputTokens,
+    totalTokens: u.totalTokens, costUsd: u.costUsd, priced: u.priced, costLabel: formatUsd(u.costUsd),
+  });
   const history = [];
 
   const gate = async (kind, payload) => {
@@ -303,7 +309,7 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
     return true;
   };
 
-  const finish = (result, message) => { emitUsage(); emit({ type: "done", result, message, usage: finalUsage() }); return { result, message, usage: finalUsage() }; };
+  const finish = (result, message) => { emit({ type: "done", result, message, usage: finalUsage() }); return { result, message, usage: finalUsage() }; };
 
   // Credentials substituted at EXECUTION time only — the real password never enters the
   // planner prompt, the plan JSON, or the logs (the planner uses the literal token $PASSWORD).
@@ -327,8 +333,9 @@ export async function runApplicationPlan({ url, agentName, emit, autoSubmit, aut
     } catch (e) {
       return finish("error", `Planner failed: ${String(e?.message || e).slice(0, 160)}`);
     }
-    total = mergeUsage(total, { inputTokens: usage.inputTokens, cachedTokens: usage.cachedTokens, outputTokens: usage.outputTokens, totalTokens: usage.totalTokens, costUsd: usage.costUsd, priced: usage.priced });
-    emitUsage();
+    const pageDelta = { inputTokens: usage.inputTokens, cachedTokens: usage.cachedTokens, outputTokens: usage.outputTokens, totalTokens: usage.totalTokens, costUsd: usage.costUsd, priced: usage.priced };
+    total = mergeUsage(total, pageDelta);
+    emitUsageDelta(pageDelta); // per-page delta (dashboard accumulates), real-time + kill-resilient
     step("ai", "Plan", `${plan.summary || "(page)"} — ${(plan.steps || []).length} steps → ${plan.next}`);
 
     // OTP gate: fetch the code and fill the boxes (no LLM per box).
@@ -447,7 +454,9 @@ export async function runBatchPlan(opts) {
       let jobProfile = opts.profile;
       if (opts.generateResumeByAi) {
         const destDir = path.join(resumeTempDir, String(i));
-        const destFilePath = path.join(destDir, `resume-${job.id || i}.pdf`);
+        // Name the upload after the applicant ("Eli Taylor.pdf"), not "resume-<id>".
+        const resumeBaseName = String(applierName || "Resume").replace(/[^\w.\-()+ ]+/g, "_").trim() || "Resume";
+        const destFilePath = path.join(destDir, `${resumeBaseName}.pdf`);
         fs.mkdirSync(destDir, { recursive: true });
         jobEmit({
           type: "resumeMatch",
@@ -488,7 +497,12 @@ export async function runBatchPlan(opts) {
         });
       } catch (e) { jobEmit({ type: "done", result: "error", message: String(e?.message || e).slice(0, 200) }); r = { result: "error" }; }
       results.push({ jobId: job.id, title: job.title, result: r.result });
-      if (r.result === "submitted") { submitted++; if (job.id && markApplied) await markApplied(job.id).catch(() => {}); }
+      // Mark both submitted AND skipped as handled so they leave the posted queue
+      // (skipped = no apply path / expired / wrong page → don't retry it).
+      if (r.result === "submitted" || r.result === "skipped") {
+        if (r.result === "submitted") submitted++;
+        if (job.id && markApplied) await markApplied(job.id).catch(() => {});
+      }
       if (i < jobs.length - 1) await sleep(1200);
     }
     emit({ type: "done", result: "batch_complete", message: `Batch complete — ${submitted}/${jobs.length} submitted`, submitted, total: jobs.length, results });

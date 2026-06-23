@@ -11,6 +11,7 @@
 import { runClaudeAgent } from "./claude-runner.mjs";
 import { usageToAgentForce, parseResult, runBatchCodex, sessionForRun } from "./codex-apply.mjs";
 import { formatUsd } from "../../core-backend/src/pricing.mjs";
+import { writeRunMcpConfig } from "./mcp-session.mjs";
 
 /** Compose the (deliberately short) task prompt for Claude Code. The detailed
  *  operating rules (drive via `playwright-cli`, snapshot-to-file + grep, etc.)
@@ -41,6 +42,12 @@ export function buildClaudeApplyPrompt({ url, job, profile, resumePath, resumeGe
       : "",
     "",
     "Open the URL, fill the application from the profile, upload the resume, and submit.",
+    "",
+    "DECIDE — is this the job's application?",
+    "- A multi-step flow is NORMAL: a job-description page with an \"Apply\" / \"Apply Now\" / \"Start application\" button → CLICK it, then if asked choose \"Apply with résumé\" / \"Autofill\" (else \"Apply manually\") and fill the form. Workday/Greenhouse/iCIMS work this way — do NOT skip just because the form isn't shown yet.",
+    "- ONLY end with `RESULT: skipped — <reason>` if the page truly has no way to apply to THIS job: a generic careers/listing page with no apply control, an expired/removed posting, a 404/error, or clearly the wrong page. (Skipped jobs are marked handled so they aren't retried.)",
+    "- If clicking Apply makes no progress after ~2 tries, treat it as not reachable → skipped.",
+    "- NEVER dump the whole page (no document.body.innerHTML / innerText of the full page) — read the snapshot; dumping blows the token limit.",
     "When done, end with one line: RESULT: <submitted|review_pending|skipped|error> — <short reason>",
   ].filter(Boolean);
   return lines.join("\n");
@@ -97,9 +104,19 @@ export async function runApplicationClaude({
   emit({ type: "status", phase: "starting", message: `Agent "${agentName}" booting for ${profile.fullName}` });
   emit({ type: "meta", profileName: profile.fullName, model, resumeStack: profile.resumeStack, resumePath: profile.resumePath, url, role: job?.title, company: job?.company });
   step("info", "Profile", `${profile.fullName} · resume: ${profile.resumeStack || "default"}`);
-  // MCP mode runs from the CLAUDE.md-free workspace so the agent isn't told to prefer the CLI.
-  const cwd = claudeEngine === "mcp" ? (claudeMcpCwd || claudeCwd) : claudeCwd;
-  step("info", "Engine", `claude-code → ${model} · ${claudeEngine === "mcp" ? "Playwright MCP" : "playwright-cli"}`);
+  // MCP mode: write a per-run config (isolated browser → concurrent agents; + the
+  // applicant's saved Google session if connected → logged in, no re-verify), and
+  // run from its CLAUDE.md-free temp dir so the agent uses the MCP (not the CLI).
+  let cwd = claudeEngine === "mcp" ? (claudeMcpCwd || claudeCwd) : claudeCwd;
+  let mcpConfig;
+  let usingSession = false;
+  if (claudeEngine === "mcp") {
+    const built = writeRunMcpConfig({ applierName: profile.fullName, runId });
+    cwd = built.dir;
+    mcpConfig = built.config;
+    usingSession = built.usingSession;
+  }
+  step("info", "Engine", `claude-code → ${model} · ${claudeEngine === "mcp" ? `Playwright MCP${usingSession ? " (saved Google session)" : ""}` : "playwright-cli"}`);
 
   // Running total, accumulated from per-turn usage DELTAS emitted by the runner.
   // We forward each delta as its own dashboard usage event (priced at DeepSeek
@@ -161,6 +178,7 @@ export async function runApplicationClaude({
   const res = await runClaudeAgent({
     claudeBin,
     cwd,
+    mcpConfig,
     model,
     apiKey,
     env: gateEnv,

@@ -32,7 +32,7 @@ export function providerEnv(model, apiKey) {
 }
 
 /** Build the `claude` argv for one headless run. */
-export function buildArgs({ model, resumeSessionId }) {
+export function buildArgs({ model, resumeSessionId, mcpConfig }) {
   const args = [
     "-p",
     "--output-format", "stream-json",
@@ -42,6 +42,9 @@ export function buildArgs({ model, resumeSessionId }) {
     "--permission-mode", "bypassPermissions",
   ];
   if (model) args.push("--model", model);
+  // Explicit per-run MCP config (MCP driver: isolated browser + saved session).
+  // With it, cwd is a CLAUDE.md-free temp dir, so this is the only config loaded.
+  if (mcpConfig) args.push("--mcp-config", mcpConfig);
   // Continue a prior session after a handoff (not used yet, kept symmetric).
   if (resumeSessionId) args.push("--resume", resumeSessionId);
   return args;
@@ -119,7 +122,7 @@ export function mapEvent(ev) {
  */
 export async function runClaudeAgent(o) {
   const spawnFn = o.deps?.spawn || spawn;
-  const args = buildArgs({ model: o.model, resumeSessionId: o.resumeSessionId });
+  const args = buildArgs({ model: o.model, resumeSessionId: o.resumeSessionId, mcpConfig: o.mcpConfig });
 
   const env = {
     ...process.env,
