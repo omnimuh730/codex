@@ -9,12 +9,24 @@
 // vocabulary so the live-run UI works identically to the codex path.
 
 import { runClaudeAgent } from "./claude-runner.mjs";
-import { usageToAgentForce, parseResult, runBatchCodex } from "./codex-apply.mjs";
+import { usageToAgentForce, parseResult, runBatchCodex, sessionForRun } from "./codex-apply.mjs";
+import { formatUsd } from "../../core-backend/src/pricing.mjs";
 
-/** Compose the (deliberately short) task prompt for Claude Code. */
-export function buildClaudeApplyPrompt({ url, job, profile, resumePath, resumeGenerating }) {
+/** Compose the (deliberately short) task prompt for Claude Code. The detailed
+ *  operating rules (drive via `playwright-cli`, snapshot-to-file + grep, etc.)
+ *  live in the workspace CLAUDE.md, which is auto-loaded — keep this lean. */
+export function buildClaudeApplyPrompt({ url, job, profile, resumePath, resumeGenerating, engine = "cli" }) {
+  const driver = engine === "mcp"
+    ? [
+        "Apply to this job for me. Drive the browser with the Playwright MCP tools",
+        "(mcp__playwright__* — browser_navigate, browser_snapshot, browser_click, browser_type, browser_file_upload).",
+      ]
+    : [
+        "Apply to this job for me. Drive the browser with the `playwright-cli` terminal command",
+        "(snapshot to a file and grep — do NOT use the Playwright MCP tools), per CLAUDE.md.",
+      ];
   const lines = [
-    "Apply to this job for me using the Playwright browser tools.",
+    ...driver,
     "",
     `Job: ${job?.title || "(role)"}${job?.company ? ` at ${job.company}` : ""}`,
     `URL: ${url}`,
@@ -75,6 +87,8 @@ export async function runApplicationClaude({
   signal,
   claudeBin,
   claudeCwd,
+  claudeMcpCwd,
+  claudeEngine = "cli", // "cli" (playwright-cli) | "mcp" (Playwright MCP)
   // Accepted-but-unused (codex-specific) so the batch loop can pass one shape:
   autoSubmit, proxyUrl, codexPath, runId, images, resumeGenerating,
 }) {
@@ -83,9 +97,15 @@ export async function runApplicationClaude({
   emit({ type: "status", phase: "starting", message: `Agent "${agentName}" booting for ${profile.fullName}` });
   emit({ type: "meta", profileName: profile.fullName, model, resumeStack: profile.resumeStack, resumePath: profile.resumePath, url, role: job?.title, company: job?.company });
   step("info", "Profile", `${profile.fullName} · resume: ${profile.resumeStack || "default"}`);
-  step("info", "Engine", `claude-code → ${model}`);
+  // MCP mode runs from the CLAUDE.md-free workspace so the agent isn't told to prefer the CLI.
+  const cwd = claudeEngine === "mcp" ? (claudeMcpCwd || claudeCwd) : claudeCwd;
+  step("info", "Engine", `claude-code → ${model} · ${claudeEngine === "mcp" ? "Playwright MCP" : "playwright-cli"}`);
 
-  let usageRaw = null;
+  // Running total, accumulated from per-turn usage DELTAS emitted by the runner.
+  // We forward each delta as its own dashboard usage event (priced at DeepSeek
+  // rates), so cost ticks up in real time and a killed run still reports the
+  // input cost already spent.
+  let total = { inputTokens: 0, cachedTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0 };
   const onEvent = (e) => {
     switch (e.kind) {
       case "message":
@@ -105,9 +125,22 @@ export async function runApplicationClaude({
       case "error":
         step("warn", "Error", e.message);
         break;
-      case "usage":
-        usageRaw = e.usage || usageRaw;
+      case "usage": {
+        const d = claudeUsage(model, e.usage || {}); // price this turn's delta
+        total = {
+          inputTokens: total.inputTokens + d.inputTokens,
+          cachedTokens: total.cachedTokens + d.cachedTokens,
+          outputTokens: total.outputTokens + d.outputTokens,
+          totalTokens: total.totalTokens + d.totalTokens,
+          costUsd: total.costUsd + d.costUsd,
+        };
+        emit({
+          type: "usage", model,
+          inputTokens: d.inputTokens, cachedTokens: d.cachedTokens, outputTokens: d.outputTokens,
+          totalTokens: d.totalTokens, costUsd: d.costUsd, priced: d.priced, costLabel: d.costLabel,
+        });
         break;
+      }
       default:
         break;
     }
@@ -115,7 +148,11 @@ export async function runApplicationClaude({
 
   // Secrets passed via env (never in the prompt) so Claude Code can self-resolve
   // login/OTP gates with its shell + Playwright tools if it needs to.
+  // PLAYWRIGHT_CLI_SESSION scopes every `playwright-cli` command to THIS run's
+  // own browser (concurrent agents stay isolated) and matches the session the
+  // batch teardown closes — same scheme as the codex path.
   const gateEnv = {
+    PLAYWRIGHT_CLI_SESSION: sessionForRun(runId, agentName),
     GMAIL_ADDRESS: profile.email || "",
     GMAIL_APP_PASSWORD: profile.gmailAppPassword || "",
     APPLICANT_PASSWORD: profile.defaultPassword || "",
@@ -123,21 +160,18 @@ export async function runApplicationClaude({
 
   const res = await runClaudeAgent({
     claudeBin,
-    cwd: claudeCwd,
+    cwd,
     model,
     apiKey,
     env: gateEnv,
-    prompt: buildClaudeApplyPrompt({ url, job, profile, resumePath: profile.resumePath, resumeGenerating }),
+    prompt: buildClaudeApplyPrompt({ url, job, profile, resumePath: profile.resumePath, resumeGenerating, engine: claudeEngine }),
     onEvent,
     signal,
   });
 
-  const usage = claudeUsage(model, res.usage || usageRaw || {});
-  emit({
-    type: "usage", model,
-    inputTokens: usage.inputTokens, cachedTokens: usage.cachedTokens, outputTokens: usage.outputTokens,
-    totalTokens: usage.totalTokens, costUsd: usage.costUsd, priced: usage.priced, costLabel: usage.costLabel,
-  });
+  // Per-turn deltas were already emitted above; the done event just carries the
+  // accumulated total (no extra usage emit, to avoid double-counting).
+  const usage = { ...total, priced: true, costLabel: formatUsd(total.costUsd) };
 
   if (res.failure || res.exitCode !== 0) {
     const message = res.failure || `claude exited ${res.exitCode}: ${String(res.stderr || "").slice(0, 200)}`;

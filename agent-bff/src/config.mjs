@@ -14,8 +14,11 @@ export const PATHS = {
   codexBin: path.resolve(__dirname, "..", "..", "codex-rs", "target", "release", "codex"),
   deepseekProxy: path.resolve(__dirname, "..", "..", "deepseek-responses-proxy", "src", "index.mjs"),
   // The claude-code workspace: holds .mcp.json (Playwright MCP), .claude/settings.json,
-  // and the Playwright CLI — the cwd we launch `claude` from for the claude-code provider.
+  // CLAUDE.md (playwright-cli rules) — the cwd for the default CLI mode.
   claudeCode: path.resolve(__dirname, "..", "..", "..", "claude-code"),
+  // A sibling workspace WITHOUT CLAUDE.md, used for MCP mode so the agent isn't
+  // told to prefer playwright-cli. Holds only an .mcp.json (Playwright + Gmail MCP).
+  claudeMcp: path.resolve(__dirname, "..", "..", "..", "claude-mcp-workspace"),
 };
 
 function parseEnvFile(file) {
@@ -53,6 +56,7 @@ export const CONFIG = {
   codexBin: env("CODEX_BIN") || PATHS.codexBin,
   claudeBin: env("CLAUDE_BIN", "claude"),
   claudeCwd: env("CLAUDE_CODE_DIR") || PATHS.claudeCode,
+  claudeMcpCwd: env("CLAUDE_MCP_DIR") || PATHS.claudeMcp,
   deepseekProxyPort: Number(env("DEEPSEEK_PROXY_PORT", "8788")),
   pwSession: env("PW_SESSION", "athens-agent"),
   autoSubmit: (env("AUTO_SUBMIT") || "true") !== "false",

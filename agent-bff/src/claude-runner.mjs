@@ -95,7 +95,9 @@ export function mapEvent(ev) {
       return null;
     }
     case "result":
-      return { kind: "usage", usage: ev.usage, costUsd: ev.total_cost_usd, text: ev.result };
+      // Usage is accounted per-turn in runClaudeAgent (real-time, survives a kill),
+      // so we do NOT emit a usage lump here — only the final message/failure are read.
+      return null;
     default:
       return null;
   }
@@ -148,6 +150,22 @@ export async function runClaudeAgent(o) {
     for (const e of Array.isArray(mapped) ? mapped : [mapped]) o.onEvent(e);
   };
 
+  // Real-time, kill-resilient usage accounting. Each assistant turn carries its
+  // own input/cache usage (DeepSeek bills cache_read on every turn), but the
+  // stream emits each assistant message TWICE with identical usage — so we count
+  // each message id once. output_tokens only arrives in the final `result`.
+  // We emit a per-turn DELTA usage event; callers accumulate it, so even if the
+  // process is killed mid-run the spent input cost is already reported.
+  const seenMsgIds = new Set();
+  const acc = { input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0 };
+  const emitUsageDelta = (d) => {
+    acc.input_tokens += d.input_tokens || 0;
+    acc.cache_read_input_tokens += d.cache_read_input_tokens || 0;
+    acc.cache_creation_input_tokens += d.cache_creation_input_tokens || 0;
+    acc.output_tokens += d.output_tokens || 0;
+    if (o.onEvent) o.onEvent({ kind: "usage", usage: d });
+  };
+
   const rl = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
   for await (const line of rl) {
     let ev;
@@ -157,8 +175,32 @@ export async function runClaudeAgent(o) {
       continue;
     }
     if (ev.type === "system" && ev.subtype === "init") sessionId = ev.session_id;
+    if (ev.type === "assistant") {
+      const u = ev.message?.usage;
+      const id = ev.message?.id;
+      if (u && id && !seenMsgIds.has(id)) {
+        seenMsgIds.add(id);
+        emitUsageDelta({
+          input_tokens: u.input_tokens || 0,
+          cache_read_input_tokens: u.cache_read_input_tokens || 0,
+          cache_creation_input_tokens: u.cache_creation_input_tokens || 0,
+          output_tokens: 0,
+        });
+      }
+    }
     if (ev.type === "result") {
-      usage = ev.usage || usage;
+      // Output (only known now) + reconcile any input/cache the per-turn sum missed.
+      const ru = ev.usage || {};
+      const dOut = (ru.output_tokens || 0) - acc.output_tokens;
+      const dIn = (ru.input_tokens ?? acc.input_tokens) - acc.input_tokens;
+      const dCache = (ru.cache_read_input_tokens ?? acc.cache_read_input_tokens) - acc.cache_read_input_tokens;
+      if (dOut > 0 || dIn > 0 || dCache > 0) {
+        emitUsageDelta({
+          input_tokens: Math.max(0, dIn),
+          cache_read_input_tokens: Math.max(0, dCache),
+          output_tokens: Math.max(0, dOut),
+        });
+      }
       costUsd = ev.total_cost_usd ?? costUsd;
       if (ev.subtype && ev.subtype !== "success") failure = ev.result || `claude ${ev.subtype}`;
       if (ev.result) finalMessage = ev.result;
@@ -166,6 +208,7 @@ export async function runClaudeAgent(o) {
     emit(mapEvent(ev));
   }
 
+  usage = acc; // accumulated total (reflects partial spend even if aborted)
   const exitCode = await new Promise((r) => child.on("exit", (c) => r(c ?? 1)));
   return { threadId: sessionId, finalMessage, usage, costUsd, exitCode, failure, stderr: stderr.join("") };
 }

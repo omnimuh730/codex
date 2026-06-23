@@ -458,6 +458,7 @@ const server = http.createServer(async (req, res) => {
     const generateResumeByAi = body.generateResumeByAi === true;
     const mode = (body.mode || "turbo").trim();            // "turbo" (codex) | "plan"
     const provider = (body.provider || "codex").trim();    // "codex" | "claude-code"
+    const claudeEngine = (body.claudeEngine || "cli").trim() === "mcp" ? "mcp" : "cli"; // claude-code browser driver
     const autoApprove = body.autoApprove ?? true;          // plan mode: auto-approve gates
     const profileId = (body.profileId || "").trim();
     const model = (body.model || "").trim() || CONFIG.openaiModel;
@@ -554,6 +555,8 @@ const server = http.createServer(async (req, res) => {
           runId: run.id,
           claudeBin: CONFIG.claudeBin,
           claudeCwd: CONFIG.claudeCwd,
+          claudeMcpCwd: CONFIG.claudeMcpCwd,
+          claudeEngine,
           controller,
           markApplied: (jobId) => markJobApplied({ jobId, applierId: profile.accountId }),
           emit: (e) => emitTo(run, e),

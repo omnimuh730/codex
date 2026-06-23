@@ -366,7 +366,7 @@ async function runBatchCodexInner(opts, { session }) {
   // Provider selection: codex (default) or claude-code. Both runApplication*
   // implementations share this signature, so the loop below is provider-agnostic.
   const runApplication = opts.runApplication || runApplicationCodex;
-  const { claudeBin, claudeCwd } = opts;
+  const { claudeBin, claudeCwd, claudeMcpCwd, claudeEngine } = opts;
   const check = () => controller?.checkpoint?.();
   emit({ type: "batch", total: jobs.length, source, agentName, generateResumeByAi: !!opts.generateResumeByAi });
   let submitted = 0;
@@ -476,6 +476,8 @@ async function runBatchCodexInner(opts, { session }) {
             codexPath,
             claudeBin,
             claudeCwd,
+            claudeMcpCwd,
+            claudeEngine,
             job,
             runId: opts.runId,
             signal: controller?.signal,
@@ -592,6 +594,8 @@ async function runBatchCodexInner(opts, { session }) {
         codexPath,
         claudeBin,
         claudeCwd,
+        claudeMcpCwd,
+        claudeEngine,
         job,
         runId: opts.runId,
         signal: controller?.signal,
