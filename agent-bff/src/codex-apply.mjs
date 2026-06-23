@@ -79,9 +79,12 @@ export function usageToAgentForce(model, usage) {
   return { ...u, costLabel: formatUsd(u.costUsd) };
 }
 
-/** Parse codex's trailing `RESULT: <status> — <reason>` line. */
+/** Parse the agent's trailing `RESULT: <status> — <reason>` line. Tolerates
+ *  markdown/quoting the model sometimes adds, e.g. `RESULT: **submitted**` —
+ *  otherwise a real submit is misread as `submitted_unconfirmed`, never gets
+ *  marked applied, and the job is wrongly re-applied on the next run. */
 export function parseResult(finalMessage) {
-  const m = /RESULT:\s*(submitted|review_pending|needs_login|skipped|paused|error)\b\s*(?:[—:-]\s*(.*))?/i.exec(
+  const m = /RESULT:\s*[*_`'"]*\s*(submitted|review_pending|needs_login|skipped|paused|error)\b[*_`'"]*\s*(?:[—:-]\s*(.*))?/i.exec(
     String(finalMessage || ""),
   );
   if (!m) return { result: "submitted_unconfirmed", message: String(finalMessage || "").slice(0, 200) };
@@ -360,6 +363,10 @@ export async function runBatchCodex(opts) {
 
 async function runBatchCodexInner(opts, { session }) {
   const { jobs, source, agentName, emit, markApplied, controller = null, codexPath, proxyUrl } = opts;
+  // Provider selection: codex (default) or claude-code. Both runApplication*
+  // implementations share this signature, so the loop below is provider-agnostic.
+  const runApplication = opts.runApplication || runApplicationCodex;
+  const { claudeBin, claudeCwd } = opts;
   const check = () => controller?.checkpoint?.();
   emit({ type: "batch", total: jobs.length, source, agentName, generateResumeByAi: !!opts.generateResumeByAi });
   let submitted = 0;
@@ -395,7 +402,11 @@ async function runBatchCodexInner(opts, { session }) {
 
     if (opts.generateResumeByAi) {
       const destDir = path.join(resumeTempDir, String(i));
-      const destFilePath = path.join(destDir, `resume-${job.id || i}.txt`);
+      // The ATS shows the uploaded file's name, so name it after the applicant —
+      // e.g. "Eli Taylor.pdf" — not an opaque "resume-<jobid>". The generator
+      // renders a real PDF; the filename matches that.
+      const resumeBaseName = String(applierName || "Resume").replace(/[^\w.\-()+ ]+/g, "_").trim() || "Resume";
+      const destFilePath = path.join(destDir, `${resumeBaseName}.pdf`);
       fs.mkdirSync(destDir, { recursive: true });
 
       const jdText = buildJdSkillProfileText(job);
@@ -417,7 +428,7 @@ async function runBatchCodexInner(opts, { session }) {
         ...opts.profile,
         resumeStack: "AI Generated",
         resumePath: destFilePath,
-        resumeMimeType: "text/plain",
+        resumeMimeType: "application/pdf",
         resumeFileName: path.basename(destFilePath),
       };
 
@@ -450,7 +461,7 @@ async function runBatchCodexInner(opts, { session }) {
       let r;
       try {
         const [applyResult] = await Promise.all([
-          runApplicationCodex({
+          runApplication({
             url: job.url,
             agentName,
             emit: jobEmit,
@@ -460,6 +471,8 @@ async function runBatchCodexInner(opts, { session }) {
             apiKey: opts.apiKey,
             proxyUrl,
             codexPath,
+            claudeBin,
+            claudeCwd,
             job,
             runId: opts.runId,
             signal: controller?.signal,
@@ -548,7 +561,7 @@ async function runBatchCodexInner(opts, { session }) {
 
     let r;
     try {
-      r = await runApplicationCodex({
+      r = await runApplication({
         url: job.url,
         agentName,
         emit: jobEmit,
@@ -558,6 +571,8 @@ async function runBatchCodexInner(opts, { session }) {
         apiKey: opts.apiKey,
         proxyUrl,
         codexPath,
+        claudeBin,
+        claudeCwd,
         job,
         runId: opts.runId,
         signal: controller?.signal,

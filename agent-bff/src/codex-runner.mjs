@@ -145,6 +145,13 @@ export async function runCodexAgent(o) {
   // codex authenticates to the proxy (DeepSeek) or OpenAI with CODEX_API_KEY.
   const env = { ...process.env, ...(o.env || {}), CODEX_API_KEY: o.apiKey || "" };
   const child = spawnFn(o.codexPath, args, { env, signal: o.signal });
+  // A child spawned with `signal` emits an 'error' (ABORT_ERR) when the run is
+  // Stopped/Paused. Without a listener Node re-throws it as uncaught and kills the
+  // whole agent-bff process — swallow the abort; surface anything else.
+  child.on("error", (err) => {
+    if (err?.code === "ABORT_ERR" || err?.name === "AbortError") return;
+    stderr.push(`spawn error: ${err?.message || err}`);
+  });
 
   child.stdin.write(o.prompt || "");
   child.stdin.end();

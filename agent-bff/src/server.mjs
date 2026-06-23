@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CONFIG, maskKey, PATHS } from "./config.mjs";
 import { runBatchCodex, sessionForRun, closeBrowserSession } from "./codex-apply.mjs";
+import { runBatchClaude } from "./claude-apply.mjs";
 import { runBatchPlan } from "./plan-apply.mjs";
 import { ensureDeepSeekProxy } from "./proxy-control.mjs";
 import {
@@ -453,6 +454,7 @@ const server = http.createServer(async (req, res) => {
     const autoSubmit = body.autoSubmit ?? CONFIG.autoSubmit;
     const generateResumeByAi = body.generateResumeByAi === true;
     const mode = (body.mode || "turbo").trim();            // "turbo" (codex) | "plan"
+    const provider = (body.provider || "codex").trim();    // "codex" | "claude-code"
     const autoApprove = body.autoApprove ?? true;          // plan mode: auto-approve gates
     const profileId = (body.profileId || "").trim();
     const model = (body.model || "").trim() || CONFIG.openaiModel;
@@ -538,6 +540,23 @@ const server = http.createServer(async (req, res) => {
       checkpoint() { if (wasStopped(run.id)) throw new Error("stopped"); },
     };
     (async () => {
+      if (provider === "claude-code") {
+        // Claude Code drives the application end-to-end via the Playwright MCP +
+        // CLI in the claude-code workspace. DeepSeek models use DeepSeek's
+        // Anthropic-compatible endpoint directly (no Responses proxy needed).
+        await runBatchClaude({
+          jobs, source: source || "Direct", agentName: name, autoSubmit, generateResumeByAi,
+          profile, model, apiKey,
+          applierId: profile.accountId,
+          runId: run.id,
+          claudeBin: CONFIG.claudeBin,
+          claudeCwd: CONFIG.claudeCwd,
+          controller,
+          markApplied: (jobId) => markJobApplied({ jobId, applierId: profile.accountId }),
+          emit: (e) => emitTo(run, e),
+        });
+        return;
+      }
       if (mode === "plan") {
         // Plan mode: LLM plans each page once; a deterministic runner executes the
         // playwright-cli commands (no LLM per command). ~10–20× cheaper than codex.

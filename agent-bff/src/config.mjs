@@ -13,6 +13,9 @@ export const PATHS = {
   envFile: path.resolve(__dirname, "..", "..", ".env"),
   codexBin: path.resolve(__dirname, "..", "..", "codex-rs", "target", "release", "codex"),
   deepseekProxy: path.resolve(__dirname, "..", "..", "deepseek-responses-proxy", "src", "index.mjs"),
+  // The claude-code workspace: holds .mcp.json (Playwright MCP), .claude/settings.json,
+  // and the Playwright CLI — the cwd we launch `claude` from for the claude-code provider.
+  claudeCode: path.resolve(__dirname, "..", "..", "..", "claude-code"),
 };
 
 function parseEnvFile(file) {
@@ -48,6 +51,8 @@ export const CONFIG = {
   deepseekApiKey: env("DEEPSEEK_API_KEY"),
   openaiModel: env("OPENAI_MODEL", "gpt-4o-mini"),
   codexBin: env("CODEX_BIN") || PATHS.codexBin,
+  claudeBin: env("CLAUDE_BIN", "claude"),
+  claudeCwd: env("CLAUDE_CODE_DIR") || PATHS.claudeCode,
   deepseekProxyPort: Number(env("DEEPSEEK_PROXY_PORT", "8788")),
   pwSession: env("PW_SESSION", "athens-agent"),
   autoSubmit: (env("AUTO_SUBMIT") || "true") !== "false",
